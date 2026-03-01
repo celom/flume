@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  packages: write
 
 jobs:
   release:
@@ -50,3 +51,8 @@ jobs:
 
       - if: steps.release.outputs.new_release == 'true'
         run: npx nx release publish
+
+      - if: steps.release.outputs.new_release == 'true'
+        run: npx nx release publish --registry=https://npm.pkg.github.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
