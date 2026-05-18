@@ -19,3 +19,6 @@ export type { FlowObserver } from './observer.js';
 export { DefaultObserver, NoOpObserver } from './observer.js';
 export { PinoFlowObserver, type PinoLike } from './pino-observer.js';
 
+// Export durability store implementation
+export { MemoryDurabilityStore } from './memory-store.js';
+

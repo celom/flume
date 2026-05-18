@@ -7,7 +7,7 @@ import {
   createFlow,
   ValidationError,
   TimeoutError,
-} from './index.js';
+} from '../index.js';
 
 type EmptyDeps = Record<string, never>;
 

@@ -17,7 +17,69 @@ import type {
   FlowExecutionResult,
   FlowEvent,
   FlowEventPublisher,
+  DurabilityOptions,
+  FlowCheckpoint,
 } from './types.js';
+
+/**
+ * @internal
+ * Discriminated union describing the four kinds of checkpoint writes.
+ * Internal protocol between the executor loop and {@link createCheckpointWriter}
+ * — translated into a {@link FlowCheckpoint} before reaching any store.
+ *
+ * `breakValue` is wrapped in a `{ value }` envelope so that `undefined` can
+ * be a valid break return value while still being distinguishable from
+ * "this was not a break completion."
+ */
+type CheckpointWrite =
+  | { kind: 'running' }
+  | { kind: 'completed'; breakValue?: { value: unknown } }
+  | { kind: 'failed'; failedStep: { name: string; error: string } };
+
+/**
+ * @internal
+ * Build a checkpoint-writer bound to the invariant fields of a single run.
+ * Returns a no-op when durability is not configured, so call sites stay
+ * branch-free.
+ */
+function createCheckpointWriter(
+  durability: DurabilityOptions | undefined,
+  flowName: string,
+  input: unknown,
+  createdAt: Date,
+): (
+  state: unknown,
+  completedSteps: ReadonlySet<string>,
+  write: CheckpointWrite,
+) => Promise<void> {
+  if (!durability) {
+    return async () => {
+      /* no-op */
+    };
+  }
+  return async (state, completedSteps, write) => {
+    const status: FlowCheckpoint['status'] =
+      write.kind === 'running' ? 'running'
+      : write.kind === 'failed' ? 'failed'
+      : 'completed';
+
+    const checkpoint: FlowCheckpoint = {
+      flowName,
+      runId: durability.runId,
+      input,
+      state,
+      completedSteps: [...completedSteps],
+      status,
+      createdAt,
+      updatedAt: new Date(),
+      ...(write.kind === 'completed' && write.breakValue
+        ? { breakValue: write.breakValue.value }
+        : {}),
+      ...(write.kind === 'failed' ? { failedStep: write.failedStep } : {}),
+    };
+    await durability.store.save(checkpoint);
+  };
+}
 
 /**
  * Throws if the signal is already aborted.
@@ -104,10 +166,46 @@ export class FlowExecutor<
     options?: FlowExecutionOptions<TInput, TDeps, TState>,
   ): Promise<FlowExecutionResult<TState>> {
     const startTime = Date.now();
+    const durability = options?.durability;
+
+    // Load existing checkpoint if durability is configured.
+    // If the run already completed, return the saved value without re-executing.
+    let checkpoint: FlowCheckpoint | null = null;
+    if (durability) {
+      checkpoint = await durability.store.load(durability.runId);
+      if (checkpoint?.status === 'completed') {
+        const hasBreakValue = 'breakValue' in checkpoint;
+        return {
+          value: (hasBreakValue
+            ? checkpoint.breakValue
+            : checkpoint.state) as TState,
+          didBreak: hasBreakValue,
+        };
+      }
+    }
+
+    // On resume, the checkpoint's input/state/completedSteps are authoritative.
+    // The caller's `input` argument is ignored on resume to keep state deterministic.
+    const isResuming = checkpoint !== null;
+    const effectiveInput = (checkpoint ? checkpoint.input : input) as TInput;
+    const completedSteps = new Set<string>(checkpoint?.completedSteps ?? []);
+    const originalCreatedAt = checkpoint?.createdAt ?? new Date(startTime);
+    const persist = createCheckpointWriter(
+      durability,
+      config.name,
+      effectiveInput,
+      originalCreatedAt,
+    );
+
     const meta: FlowMeta = {
       flowName: config.name,
       startedAt: new Date(startTime),
       correlationId: options?.correlationId,
+      // Durability-only fields. Left undefined when durability isn't configured
+      // so handlers can rely on `meta.runId !== undefined` to detect durable runs.
+      ...(durability
+        ? { runId: durability.runId, isResuming }
+        : {}),
     };
 
     const observer = options?.observer;
@@ -139,15 +237,15 @@ export class FlowExecutor<
 
     // Initialize context
     let context: FlowContext<TInput, TDeps, TState> = {
-      input: Object.freeze(input),
-      state: {} as TState,
+      input: Object.freeze(effectiveInput),
+      state: (checkpoint?.state ?? {}) as TState,
       deps,
       meta,
       signal: flowSignal,
     };
 
     // Notify observer of flow start
-    observer?.onFlowStart?.(config.name, input);
+    observer?.onFlowStart?.(config.name, effectiveInput);
 
     try {
       // Execute each step in sequence
@@ -155,13 +253,25 @@ export class FlowExecutor<
         // Check if flow has been aborted before starting next step
         throwIfAborted(flowSignal);
 
+        // Skip steps already recorded as completed in a prior run.
+        // Their state is already merged in via the loaded checkpoint.
+        if (completedSteps.has(step.name)) {
+          continue;
+        }
+
         // Update current step in meta
         context.meta.currentStep = step.name;
+        if (durability) {
+          context.meta.idempotencyKey = `${durability.runId}:${step.name}`;
+        }
 
         // Check condition if present
         if (step.condition && !step.condition(context)) {
           observer?.onStepSkipped?.(step.name, context);
-          continue; // Skip this step
+          // Persist the skip so resume doesn't re-evaluate the condition.
+          completedSteps.add(step.name);
+          await persist(context.state, completedSteps, { kind: 'running' });
+          continue;
         }
 
         // Handle break step type - short-circuits the flow if condition is met
@@ -179,6 +289,14 @@ export class FlowExecutor<
 
             const duration = Date.now() - stepStart;
             const totalDuration = Date.now() - startTime;
+
+            // Persist completed-with-break BEFORE notifying observers, so a
+            // crash in observer code doesn't lose the completion record.
+            completedSteps.add(step.name);
+            await persist(context.state, completedSteps, {
+              kind: 'completed',
+              breakValue: { value: breakResult },
+            });
 
             // Notify observers
             observer?.onStepComplete?.(step.name, breakResult, duration, context);
@@ -201,6 +319,8 @@ export class FlowExecutor<
             duration,
             context,
           );
+          completedSteps.add(step.name);
+          await persist(context.state, completedSteps, { kind: 'running' });
           continue;
         }
 
@@ -214,7 +334,16 @@ export class FlowExecutor<
             state: { ...context.state, ...result },
           };
         }
+
+        // Persist after each successful step. The step is only added to
+        // completedSteps AFTER its result has been merged into state — so
+        // a crash between handler success and this save will re-run the step.
+        completedSteps.add(step.name);
+        await persist(context.state, completedSteps, { kind: 'running' });
       }
+
+      // Mark run as completed. Persist BEFORE observer notifications.
+      await persist(context.state, completedSteps, { kind: 'completed' });
 
       // Return the final state as output
       const totalDuration = Date.now() - startTime;
@@ -223,6 +352,21 @@ export class FlowExecutor<
       return { value: context.state, didBreak: false };
     } catch (error) {
       const totalDuration = Date.now() - startTime;
+
+      // Best-effort failure persistence. Swallow store errors here so the
+      // original flow error is what the caller sees.
+      try {
+        await persist(context.state, completedSteps, {
+          kind: 'failed',
+          failedStep: {
+            name: context.meta.currentStep ?? '?',
+            error: (error as Error).message,
+          },
+        });
+      } catch {
+        // ignore
+      }
+
       observer?.onFlowError?.(config.name, error as Error, totalDuration);
 
       // If the caller wants no exception, return the partial state

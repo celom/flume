@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PinoFlowObserver, type PinoLike } from './pino-observer.js';
+import { PinoFlowObserver, type PinoLike } from '../pino-observer.js';
 
 function createMockLogger(): PinoLike {
   const logger: PinoLike = {

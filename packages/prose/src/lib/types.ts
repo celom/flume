@@ -49,6 +49,74 @@ export interface FlowEventPublisher {
   publish(channel: string, event: FlowEvent): Promise<void> | void;
 }
 
+// ──────────────────────────────────────────────────────────
+// Durability interfaces
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Persistent state of a single flow run. The store reads/writes this object
+ * verbatim — adapters are responsible for serialization (typically JSON).
+ *
+ * Steps may run more than once across resumes if the process dies between
+ * a step's success and its checkpoint write. Handlers must therefore be
+ * idempotent — typically by passing `ctx.meta.idempotencyKey` to external
+ * APIs that support it.
+ */
+export interface FlowCheckpoint {
+  flowName: string;
+  runId: string;
+  /** The input the flow was first started with. Used verbatim on resume. */
+  input: unknown;
+  /** Accumulated state at the moment of the last successful step. */
+  state: unknown;
+  /** Names of steps that have completed (or been skipped by condition). */
+  completedSteps: string[];
+  status: 'running' | 'completed' | 'failed';
+  /**
+   * When status is 'completed' AND the flow short-circuited via breakIf,
+   * holds the break return value (bypasses .map()).
+   * Distinct from `state`: a flow completing normally has `breakValue === undefined`.
+   */
+  breakValue?: unknown;
+  /** When status is 'failed', the step that errored after all retries. */
+  failedStep?: { name: string; error: string };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Pluggable durability store. Adapters may live in separate packages
+ * (e.g. @celom/prose-store-sqlite, @celom/prose-store-postgres).
+ *
+ * Implementations should serialize checkpoints atomically — partial writes
+ * defeat the purpose. Adapters MAY clone on read/write to prevent the
+ * executor from mutating stored state.
+ */
+export interface DurabilityStore {
+  /** Return the checkpoint for `runId`, or `null` if none exists. */
+  load(runId: string): Promise<FlowCheckpoint | null>;
+  /** Persist the checkpoint, overwriting any existing entry for the same runId. */
+  save(checkpoint: FlowCheckpoint): Promise<void>;
+  /** Remove the checkpoint. Optional housekeeping for callers. */
+  delete(runId: string): Promise<void>;
+}
+
+/**
+ * Durability configuration for a flow execution.
+ *
+ * Passing the same `runId` to `execute()` after a crash resumes from the
+ * next undone step. Passing the same `runId` after completion returns the
+ * saved result without re-executing.
+ */
+export interface DurabilityOptions {
+  store: DurabilityStore;
+  /**
+   * Stable identifier for this run. Same runId → resume or replay; new runId → fresh run.
+   * Typically derived from a business identifier (e.g., the order ID).
+   */
+  runId: string;
+}
+
 /**
  * Base dependencies required by all flows. Extend this with additional dependencies
  */
@@ -67,6 +135,16 @@ export interface FlowMeta {
   startedAt: Date;
   currentStep?: string;
   correlationId?: string;
+  /**
+   * Stable per-step idempotency key (`${runId}:${currentStep}`).
+   * Present only when durability is configured. Pass this to external APIs
+   * that support idempotency (Stripe, SQS, etc.) so re-runs are safe.
+   */
+  idempotencyKey?: string;
+  /** The DurabilityOptions.runId for this execution, if durability is configured. */
+  runId?: string;
+  /** True when this execution loaded an existing checkpoint rather than starting fresh. */
+  isResuming?: boolean;
 }
 
 /**
@@ -127,6 +205,13 @@ export interface FlowExecutionOptions<
   signal?: AbortSignal;
   observer?: FlowObserver<TInput, TDeps, TState>;
   errorHandling?: ErrorHandlingConfig;
+  /**
+   * Opt-in durability. When set, each successful step persists a checkpoint
+   * to the configured store. Re-invoking execute() with the same runId
+   * resumes from the next undone step (or returns the saved result if the
+   * run already completed).
+   */
+  durability?: DurabilityOptions;
 }
 
 /**
