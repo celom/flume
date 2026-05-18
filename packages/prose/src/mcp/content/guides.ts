@@ -601,6 +601,114 @@ await flow.execute(input, deps, {
 - **DefaultObserver** — Console logging
 - **NoOpObserver** — Silent (testing)
 - **PinoFlowObserver** — Structured JSON logging (Pino/Fastify)`,
+
+  durability: `# Durability
+
+Opt-in skip-ahead checkpointing. After every successful step, Prose persists a checkpoint. If the process crashes, calling \`execute()\` again with the same \`runId\` resumes from the next undone step. Same \`runId\` after completion replays the saved result without re-executing.
+
+\`\`\`typescript
+import { createFlow, MemoryDurabilityStore } from '@celom/prose';
+
+const store = new MemoryDurabilityStore();
+
+const processOrder = createFlow<{ orderId: string }>('process-order')
+  .step('chargePayment', async (ctx) => {
+    const receipt = await payments.charge({
+      amount: 100,
+      idempotencyKey: ctx.meta.idempotencyKey,
+    });
+    return { receipt };
+  })
+  .step('persistOrder', async (ctx) => {
+    await db.orders.upsert({ id: ctx.input.orderId, receiptId: ctx.state.receipt.id });
+  })
+  .build();
+
+// First call — crashes after chargePayment, before persistOrder
+await processOrder.execute({ orderId: 'ord_42' }, { db, payments }, {
+  durability: { store, runId: 'ord_42' },
+});
+
+// After restart — chargePayment is skipped, persistOrder runs
+await processOrder.execute({ orderId: 'ord_42' }, { db, payments }, {
+  durability: { store, runId: 'ord_42' },
+});
+\`\`\`
+
+## The three behaviors of execute() with durability
+
+| Stored status | Behavior |
+|---------------|----------|
+| _no checkpoint_ | Fresh run — every step executes |
+| \`running\` or \`failed\` | Resume — completed steps are skipped, state is loaded, execution continues at the first undone step |
+| \`completed\` | Replay — the saved result is returned without invoking any handler |
+
+## The idempotency contract
+
+A step may run twice across a crash. \`ctx.meta.idempotencyKey\` is a stable per-step key (\`\${runId}:\${stepName}\`) — pass it to any external API that supports idempotency.
+
+\`\`\`typescript
+.step('chargePayment', async (ctx) => {
+  const receipt = await stripe.paymentIntents.create(
+    { amount: ctx.state.total, currency: 'usd' },
+    { idempotencyKey: ctx.meta.idempotencyKey },
+  );
+  return { receipt };
+})
+\`\`\`
+
+For databases: use upserts. For queues: send with a deduplication ID. For things you can't deduplicate (email, webhooks without idempotency), accept at-least-once or move that side effect into an outbox.
+
+## Choosing a runId
+
+The \`runId\` is the identity of a single run. Pass the same \`runId\` across processes and you get the same run.
+
+- Derive it from a business identifier — order ID, signup ID, message ID
+- Don't use a random UUID generated inside a request handler; the next request won't know it
+
+## meta fields under durability
+
+When \`durability\` is configured, every step handler sees three extra \`ctx.meta\` fields:
+
+| Field | Description |
+|-------|-------------|
+| \`ctx.meta.runId\` | The \`DurabilityOptions.runId\` of this run |
+| \`ctx.meta.idempotencyKey\` | Stable per-step key (\`\${runId}:\${stepName}\`) |
+| \`ctx.meta.isResuming\` | \`true\` when this execution loaded a saved checkpoint rather than starting fresh |
+
+Use \`isResuming\` to skip work that's only needed on a fresh run (sending an initial acknowledgement, for example).
+
+## Interaction with other features
+
+| Feature | Behavior under durability |
+|---------|--------------------------|
+| \`.parallel(...)\` | Atomic checkpoint — all handlers re-run if any one fails |
+| \`.withRetry(...)\` | Retries happen within the step; checkpoint is written once, after retries succeed |
+| \`.breakIf(...)\` | Break value is persisted; replay returns it without invoking any handler |
+| \`.stepIf(...)\` / step \`condition\` | Skip decision is recorded; resume does not re-evaluate |
+| \`.transaction(...)\` | Transaction runs again if it failed before checkpoint write — database-level idempotency is your responsibility |
+| \`.event(...)\` | At-least-once: an event may be re-published if crash falls between publish and checkpoint write — consumers must be idempotent |
+| \`.validate(...)\` | Re-runs on resume only if it threw on the previous attempt |
+
+## What this isn't
+
+This is **not** Temporal-style durable execution. It does NOT provide:
+
+- Long sleeps that survive process death (\`await sleep(7.days)\`)
+- An automatic resumer service — something outside Prose must call \`execute()\` again
+- Distributed worker claim/lease coordination
+- Workflow versioning — changing a flow while a checkpoint exists is undefined behavior
+
+For those, use Temporal, Inngest, or Trigger.dev.
+
+## Stores
+
+- **\`MemoryDurabilityStore\`** — Built-in. Tests, dev, single-process scripts only. State is lost on process exit — NOT for production.
+- **Custom adapter** — Implement the three-method \`DurabilityStore\` interface (\`load\`, \`save\`, \`delete\`). See \`prose://api/durability-store\` for the contract.
+
+## Cleanup
+
+Prose does not delete completed checkpoints. Call \`store.delete(runId)\` after the result has been consumed, or implement a TTL in your store.`,
 };
 
 export const GUIDE_TOPICS = Object.keys(GUIDES);

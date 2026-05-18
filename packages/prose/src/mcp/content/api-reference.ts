@@ -243,8 +243,22 @@ interface FlowMeta {
   startedAt: Date;
   currentStep?: string;
   correlationId?: string;
+  // Durability-only — present when execute() was passed a \`durability\` option
+  runId?: string;
+  idempotencyKey?: string;
+  isResuming?: boolean;
 }
 \`\`\`
+
+| Field | Description |
+|-------|-------------|
+| \`flowName\` | The flow's name. |
+| \`startedAt\` | When this \`execute()\` call began. Set on each invocation; not preserved across resumes. |
+| \`currentStep\` | The name of the step currently executing. |
+| \`correlationId\` | Custom or auto-generated ID propagated to events and observers. |
+| \`runId\` | The \`DurabilityOptions.runId\` of this run. Present only when durability is configured. |
+| \`idempotencyKey\` | Stable per-step key (\`\${runId}:\${currentStep}\`). Pass to external APIs that support idempotency so re-runs are safe. Present only when durability is configured. |
+| \`isResuming\` | \`true\` when this execution loaded an existing checkpoint rather than starting fresh. Present only when durability is configured. |
 
 ## FlowState
 Base constraint for accumulated state. All state objects must satisfy this type.
@@ -432,6 +446,115 @@ Control behavior for missing optional dependencies.
   }
 }
 \`\`\`
+
+### durability
+**Type:** \`DurabilityOptions\`
+Opt-in skip-ahead checkpointing. When set, each successful step persists a checkpoint to the configured store. Re-invoking \`execute()\` with the same \`runId\` resumes from the next undone step (or returns the saved result if the run already completed).
+
+\`\`\`typescript
+import { MemoryDurabilityStore } from '@celom/prose';
+
+const store = new MemoryDurabilityStore();
+
+await flow.execute(input, deps, {
+  durability: { store, runId: input.orderId },
+});
+\`\`\`
+
+See \`prose://api/durability-store\` for the full \`DurabilityStore\` / \`DurabilityOptions\` / \`FlowCheckpoint\` type references, and \`prose://guides/durability\` for the conceptual guide.
+`;
+
+export const DURABILITY_REFERENCE = `# Durability Store
+
+Opt-in skip-ahead checkpointing. After every successful step, Prose persists a checkpoint to a configured \`DurabilityStore\`. Re-invoking \`execute()\` with the same \`runId\` resumes from the next undone step. Same \`runId\` after completion replays the saved result without re-execution.
+
+## DurabilityStore
+
+Pluggable persistence layer for flow checkpoints. Adapters may live in separate packages.
+
+\`\`\`typescript
+interface DurabilityStore {
+  load(runId: string): Promise<FlowCheckpoint | null>;
+  save(checkpoint: FlowCheckpoint): Promise<void>;
+  delete(runId: string): Promise<void>;
+}
+\`\`\`
+
+| Method | Semantics |
+|--------|-----------|
+| \`load(runId)\` | Return the checkpoint for \`runId\`, or \`null\` if none exists. Must not throw on unknown ids. |
+| \`save(checkpoint)\` | Persist the checkpoint, overwriting any existing entry for the same \`runId\`. Must be atomic — partial writes defeat checkpointing. |
+| \`delete(runId)\` | Remove the checkpoint. No-op for unknown \`runId\` — must not throw. |
+
+## FlowCheckpoint
+
+The shape persisted to the store. Adapters store and return this verbatim.
+
+\`\`\`typescript
+interface FlowCheckpoint {
+  flowName: string;
+  runId: string;
+  input: unknown;
+  state: unknown;
+  completedSteps: string[];
+  status: 'running' | 'completed' | 'failed';
+  breakValue?: unknown;
+  failedStep?: { name: string; error: string };
+  createdAt: Date;
+  updatedAt: Date;
+}
+\`\`\`
+
+| Field | Description |
+|-------|-------------|
+| \`flowName\` | The flow's name (from \`createFlow('name')\`). |
+| \`runId\` | The \`DurabilityOptions.runId\` of this run. |
+| \`input\` | The argument the flow was first started with. Used verbatim on resume — the caller's second \`input\` argument is ignored. |
+| \`state\` | Accumulated state at the moment of the last successful step. |
+| \`completedSteps\` | Names of finished or condition-skipped steps, in execution order. |
+| \`status\` | \`'running'\` (in progress or crashed), \`'completed'\` (saved result is final), \`'failed'\` (errored after exhausting retries). |
+| \`breakValue\` | Only present when the flow short-circuited via \`breakIf\`. The field's _presence_ distinguishes "broke" from "completed normally" — the value itself may be \`undefined\`. |
+| \`failedStep\` | Only present when \`status === 'failed'\`. The step that errored, plus its error message. |
+| \`createdAt\` | When the run first started. Preserved across resumes. |
+| \`updatedAt\` | When the checkpoint was last written. |
+
+## DurabilityOptions
+
+The shape passed via \`FlowExecutionOptions.durability\`.
+
+\`\`\`typescript
+interface DurabilityOptions {
+  store: DurabilityStore;
+  runId: string;
+}
+\`\`\`
+
+| Field | Description |
+|-------|-------------|
+| \`store\` | The store to read and write checkpoints through. |
+| \`runId\` | Stable identifier for this run. Same \`runId\` across \`execute()\` calls → resume or replay. New \`runId\` → fresh run. Typically derived from a business identifier (order ID, signup ID). |
+
+## MemoryDurabilityStore
+
+A reference \`DurabilityStore\` that holds checkpoints in a \`Map\`. **For tests, local dev, and as a reference implementation only — does NOT survive process exit.** Use a persistent adapter in production.
+
+\`\`\`typescript
+import { MemoryDurabilityStore } from '@celom/prose';
+
+const store = new MemoryDurabilityStore();
+\`\`\`
+
+Test helpers (not part of \`DurabilityStore\`): \`size()\`, \`snapshot(runId)\`, \`clear()\`.
+
+## Implementation contract
+
+Conformance tests for adapter authors live at \`packages/prose/src/lib/__tests__/store-conformance.ts\`. The file is **not** re-exported from the package entry point and is **not** included in the published \`dist/\`. Copy or vendor it into your adapter package, or import directly from source for adapters in this monorepo.
+
+Implementation notes:
+- \`save()\` must be atomic — partial writes defeat checkpointing.
+- \`load()\` returns \`null\` (not throws) for unknown \`runId\`s.
+- \`delete()\` of an unknown \`runId\` is a no-op.
+- Cloning on read is encouraged for non-serializing stores so callers can't mutate stored state.
 `;
 
 export const ERROR_TYPES_REFERENCE = `# Error Types

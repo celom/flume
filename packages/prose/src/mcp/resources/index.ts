@@ -8,6 +8,7 @@ import {
   EXECUTION_OPTIONS_REFERENCE,
   ERROR_TYPES_REFERENCE,
   OBSERVERS_REFERENCE,
+  DURABILITY_REFERENCE,
 } from '../content/api-reference.js';
 import { GUIDES, GUIDE_TOPICS } from '../content/guides.js';
 import { EXAMPLES, EXAMPLE_NAMES } from '../content/examples.js';
@@ -66,6 +67,14 @@ export function registerResources(server: McpServer) {
     mimeType: 'text/markdown',
   }, async (uri) => ({
     contents: [{ uri: uri.href, text: OBSERVERS_REFERENCE, mimeType: 'text/markdown' }],
+  }));
+
+  server.registerResource('api-durability-store', 'prose://api/durability-store', {
+    description:
+      'API reference for opt-in durability — DurabilityStore, DurabilityOptions, FlowCheckpoint, and MemoryDurabilityStore',
+    mimeType: 'text/markdown',
+  }, async (uri) => ({
+    contents: [{ uri: uri.href, text: DURABILITY_REFERENCE, mimeType: 'text/markdown' }],
   }));
 
   // Guide resources (dynamic template)
