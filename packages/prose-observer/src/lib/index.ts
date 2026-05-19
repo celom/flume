@@ -34,5 +34,11 @@ export {
 
 export { mergeObservers } from './merge-observers.js';
 
+export {
+  aggregateExecutions,
+  quantile,
+  type FlowAggregate,
+  type PerStepAggregate,
+} from './aggregate.js';
 export { shallowStateDiff } from './diff.js';
 export { DEFAULT_REDACT_KEYS, redactDeep } from './redact.js';
