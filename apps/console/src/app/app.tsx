@@ -34,30 +34,29 @@ function SideRail() {
       aria-label="primary"
       className="fixed inset-y-0 left-0 z-20 flex w-16 flex-col items-center justify-between border-r border-line bg-ink-1/80 py-5 backdrop-blur-sm"
     >
-      {/* Monogram — also satisfies the "Prose Console" accessible-name link */}
-      <Link
-        to="/"
-        aria-label="Prose Console"
-        className="group flex h-9 w-9 items-center justify-center rounded-[2px] border border-line-2 bg-ink-2 transition-colors hover:border-signal/60"
-      >
-        <span className="monogram text-fg-strong text-[20px] leading-none transition-colors group-hover:text-signal">
-          p
-        </span>
-      </Link>
+      <div className="flex flex-col items-center gap-6">
+        {/* Monogram — also satisfies the "Prose Console" accessible-name link */}
+        <Link
+          to="/"
+          aria-label="Prose Console"
+          className="group flex h-9 w-9 items-center justify-center rounded-[2px] border border-line-2 bg-ink-2 transition-colors hover:border-signal/60"
+        >
+          <span className="monogram text-fg-strong text-[20px] leading-none transition-colors group-hover:text-signal">
+            p
+          </span>
+        </Link>
 
-      {/* Rotated wordmark */}
-      <div
-        className="caps absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-mute select-none"
-        aria-hidden="true"
-      >
-        Prose <span className="text-signal/60">·</span> Console
+        <span
+          className="my-1 h-6 w-px bg-line"
+          aria-hidden="true"
+        />
+
+        <nav className="flex flex-col items-center gap-1.5">
+          <RailLink to="/" label="trace" glyph="T" />
+          <RailLink to="/catalog" label="catalog" glyph="C" />
+          <RailLink to="/live" label="live" glyph="L" />
+        </nav>
       </div>
-
-      <nav className="flex flex-col items-center gap-1.5">
-        <RailLink to="/" label="trace" glyph="T" />
-        <RailLink to="/catalog" label="catalog" glyph="C" />
-        <RailLink to="/live" label="live" glyph="L" />
-      </nav>
 
       <StreamStatus />
     </aside>
