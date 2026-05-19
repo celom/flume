@@ -12,6 +12,7 @@
       "@nx/react/typings/image.d.ts"
     ],
     "jsx": "react-jsx",
+    "lib": ["dom", "es2022"],
     "module": "esnext",
     "moduleResolution": "bundler"
   },

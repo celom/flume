@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { ExecutionRecord } from '@celom/prose-observer';
+import type { ExecutionRecord, ObserverEvent } from '@celom/prose-observer';
 
 import { fetchExecution } from '../api';
+import { DiffInspector } from '../components/DiffInspector';
+import { Gantt, type GanttRow } from '../components/Gantt';
 
 type State =
   | { kind: 'idle' }
@@ -12,9 +14,8 @@ type State =
   | { kind: 'loaded'; record: ExecutionRecord };
 
 /**
- * Slice 5 placeholder. Pulls the execution record for `?correlationId=...`
- * and dumps the raw events as a list — intentionally ugly. Slice 6
- * replaces this view with the Gantt timeline + diff inspector.
+ * Routing + fetch shell. Pure render lives in `TraceContent` so the component
+ * can be unit-tested with a fixture record (no network mocking).
  */
 export function TraceView() {
   const [params] = useSearchParams();
@@ -43,56 +44,76 @@ export function TraceView() {
 
   if (!cid) {
     return (
-      <div className="p-6 font-mono text-sm">
-        <p>
-          Append <code>?correlationId=&lt;id&gt;</code> to the URL.
-        </p>
-        <p>
-          See <a href="/catalog">/catalog</a> or{' '}
-          <a href="/live">/live</a> to find one.
-        </p>
-      </div>
+      <Hint>
+        Append <code>?correlationId=&lt;id&gt;</code> to the URL. Find ids
+        from <a href="/catalog">/catalog</a> or <a href="/live">/live</a>.
+      </Hint>
     );
   }
-
   if (state.kind === 'loading' || state.kind === 'idle') {
-    return <div className="p-6 font-mono text-sm">Loading…</div>;
+    return <Hint>Loading…</Hint>;
   }
   if (state.kind === 'not-found') {
     return (
-      <div className="p-6 font-mono text-sm">
+      <Hint>
         No execution with correlationId <code>{cid}</code>.
-      </div>
+      </Hint>
     );
   }
   if (state.kind === 'error') {
-    return (
-      <div className="p-6 font-mono text-sm text-red-600">
-        Error: {state.message}
-      </div>
-    );
+    return <Hint tone="error">Error: {state.message}</Hint>;
   }
 
-  const { record } = state;
+  return <TraceContent record={state.record} />;
+}
+
+export interface TraceContentProps {
+  record: ExecutionRecord;
+}
+
+export function TraceContent({ record }: TraceContentProps) {
+  const [selectedRow, setSelectedRow] = useState<GanttRow | null>(null);
+  const selectedEvent: ObserverEvent | null = selectedRow?.closingEvent ?? null;
+
   return (
-    <div className="p-6 font-mono text-sm">
-      <h1 className="text-lg font-bold">{record.flowName}</h1>
-      <p className="text-gray-600">
-        <code>{record.correlationId}</code> · {record.status}
-        {typeof record.durationMs === 'number'
-          ? ` · ${record.durationMs}ms`
-          : ''}
-      </p>
-      <ul className="mt-4 space-y-1">
-        {record.events.map((event, i) => (
-          <li key={i} data-testid="event-row">
-            <span className="inline-block w-32 text-blue-700">{event.type}</span>
-            <code className="text-gray-700">
-              {JSON.stringify(event).slice(0, 240)}
-            </code>
-          </li>
-        ))}
-      </ul>
+    <div className="space-y-4 p-6">
+      <header className="font-mono text-xs">
+        <div className="text-sm font-semibold text-gray-800">
+          {record.flowName}
+        </div>
+        <div className="text-gray-600">
+          <code>{record.correlationId}</code>
+          {' · '}
+          <span data-testid="trace-status">{record.status}</span>
+          {typeof record.durationMs === 'number' ? (
+            <span> · {record.durationMs}ms</span>
+          ) : null}
+        </div>
+      </header>
+      <Gantt
+        record={record}
+        selectedRowId={selectedRow?.id}
+        onSelectRow={setSelectedRow}
+      />
+      <DiffInspector record={record} selectedEvent={selectedEvent} />
+    </div>
+  );
+}
+
+function Hint({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone?: 'error';
+}) {
+  return (
+    <div
+      className={`p-6 font-mono text-sm ${
+        tone === 'error' ? 'text-red-600' : ''
+      }`}
+    >
+      {children}
     </div>
   );
 }
