@@ -8,7 +8,13 @@
  */
 
 import { createFlow, type FlowBuilder } from './lib/flow-builder.js';
-import type { BaseFlowDependencies } from './lib/types.js';
+import { MemoryDurabilityStore } from './lib/memory-store.js';
+import type {
+  BaseFlowDependencies,
+  DurabilityOptions,
+  DurabilityStore,
+  FlowCheckpoint,
+} from './lib/types.js';
 
 // ── Setup ────────────────────────────────────────────────
 
@@ -224,6 +230,73 @@ const fulfillOrder = createFlow<{ orderId: string; items: InventoryItem[] }, War
   })
   .build();
 
+// ── Durability: meta fields, options, store adapter ─────
+
+const durableFlow = createFlow<{ orderId: string }, never>('durableOrder')
+  .step('reserve', (ctx) => {
+    // Durability-only meta fields are optional (undefined when no store is configured)
+    void (ctx.meta.idempotencyKey satisfies string | undefined);
+    void (ctx.meta.runId satisfies string | undefined);
+    void (ctx.meta.isResuming satisfies boolean | undefined);
+    return { reserved: true as const };
+  })
+  .step('ship', (ctx) => {
+    void (ctx.state.reserved satisfies true);
+    return { shipmentId: `ship-${ctx.input.orderId}` };
+  })
+  .map((input, state) => ({
+    orderId: input.orderId,
+    shipmentId: state.shipmentId,
+  }))
+  .build();
+
+// MemoryDurabilityStore satisfies the DurabilityStore interface
+const _memStore: DurabilityStore = new MemoryDurabilityStore();
+
+// DurabilityOptions structural shape
+const _durabilityOpts: DurabilityOptions = {
+  store: new MemoryDurabilityStore(),
+  runId: 'order-42',
+};
+void _durabilityOpts;
+
+// Custom DurabilityStore adapter — verifies the interface contract
+const customStore: DurabilityStore = {
+  async load(runId) {
+    void (runId satisfies string);
+    return null;
+  },
+  async save(checkpoint) {
+    void (checkpoint.flowName satisfies string);
+    void (checkpoint.runId satisfies string);
+    void (checkpoint.input satisfies unknown);
+    void (checkpoint.state satisfies unknown);
+    void (checkpoint.completedSteps satisfies string[]);
+    void (checkpoint.status satisfies 'running' | 'completed' | 'failed');
+    void (checkpoint.breakValue satisfies unknown);
+    void (checkpoint.failedStep satisfies { name: string; error: string } | undefined);
+    void (checkpoint.createdAt satisfies Date);
+    void (checkpoint.updatedAt satisfies Date);
+  },
+  async delete(runId) {
+    void (runId satisfies string);
+  },
+};
+void customStore;
+
+// FlowCheckpoint structural shape (the value an adapter would persist)
+const _checkpoint: FlowCheckpoint = {
+  flowName: 'durableOrder',
+  runId: 'order-42',
+  input: { orderId: 'o1' },
+  state: { reserved: true },
+  completedSteps: ['reserve'],
+  status: 'running',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+void _checkpoint;
+
 // ── Verify output types ──────────────────────────────────
 
 async function _typeAssertions() {
@@ -280,6 +353,21 @@ async function _typeAssertions() {
   void (fulfillResult.shipmentIds satisfies string[]);
   void (fulfillResult.confirmed satisfies true);
 
+  // Durability option accepted by execute() — output type unaffected by store
+  const store = new MemoryDurabilityStore();
+  const durableResult = await durableFlow.execute(
+    { orderId: 'o1' },
+    undefined as never,
+    { durability: { store, runId: 'order-42' } },
+  );
+  void (durableResult.orderId satisfies string);
+  void (durableResult.shipmentId satisfies string);
+
+  // Store helpers are typed
+  void ((await store.load('order-42')) satisfies FlowCheckpoint | null);
+  void (store.size() satisfies number);
+  void (store.snapshot('order-42') satisfies FlowCheckpoint | null);
+
   // Combined flow chains parallel with subsequent steps
   const combinedResult = await combinedFlow.execute({ id: 'x' }, undefined as never);
   void (combinedResult.loaded satisfies true);
@@ -297,4 +385,6 @@ void parallelFlow;
 void authedFlow;
 void combinedFlow;
 void fulfillOrder;
+void durableFlow;
+void _memStore;
 void _typeAssertions;
