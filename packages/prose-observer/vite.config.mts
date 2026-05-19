@@ -35,8 +35,18 @@ export default defineConfig(() => ({
       formats: ['es' as const],
     },
     rollupOptions: {
-      // External packages that should not be bundled into your library.
-      external: [],
+      // Workspace + runtime deps stay external. Node builtins are external by
+      // platform; listed here to keep rollup quiet under strict resolution.
+      external: [
+        '@celom/prose',
+        'ws',
+        'node:crypto',
+        'node:fs',
+        'node:fs/promises',
+        'node:http',
+        'node:path',
+        'node:url',
+      ],
     },
   },
   test: {

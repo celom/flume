@@ -15,5 +15,11 @@
       "default": "./dist/index.js"
     }
   },
-  "dependencies": {}
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@celom/prose": "*"
+  }
 }

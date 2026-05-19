@@ -1,1 +1,1 @@
-export * from './lib/prose-observer.js';
+export * from './lib/index.js';
