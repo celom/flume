@@ -17,8 +17,11 @@ export function DiffInspector({ record, selectedEvent }: DiffInspectorProps) {
 
   if (!selectedEvent) {
     return (
-      <div className="font-mono text-xs text-gray-500">
-        Select a step row above to see the per-step result and state diff.
+      <div className="panel-quiet px-6 py-10 text-center">
+        <div className="caps mb-3 text-mute">Inspector · empty</div>
+        <p className="font-mono text-[12px] text-mute-2">
+          Select a step row above to see the per-step result and state diff.
+        </p>
       </div>
     );
   }
@@ -26,11 +29,20 @@ export function DiffInspector({ record, selectedEvent }: DiffInspectorProps) {
   const stepName = stepNameOf(selectedEvent);
 
   return (
-    <div className="font-mono text-xs">
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">
-        {stepName ?? '(unknown step)'}
-      </h2>
-      <div className="grid gap-3 md:grid-cols-3">
+    <div className="space-y-4">
+      <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline gap-3">
+          <span className="caps text-mute">Selected step</span>
+          <h3 className="display text-fg-strong text-[22px] leading-none">
+            {stepName ?? '(unknown step)'}
+          </h3>
+        </div>
+        <span className="chip">
+          <span className="dot dot-signal" /> {selectedEvent.type}
+        </span>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
         <Pane title="Flow input" body={inputJson} />
         <Pane title="Step result" body={resultOf(selectedEvent)} />
         <StatePane event={selectedEvent} />
@@ -75,16 +87,22 @@ function StatePane({ event }: { event: ObserverEvent }) {
   }
   if (state.mode === 'full') {
     return (
-      <div data-testid="state-pane-full" className="rounded border border-gray-200 p-2">
-        <div className="mb-1 text-gray-600">State (full snapshot)</div>
-        <details open className="mb-2">
-          <summary className="cursor-pointer">before</summary>
-          <Json value={state.before} />
-        </details>
-        <details open>
-          <summary className="cursor-pointer">after</summary>
-          <Json value={state.after} />
-        </details>
+      <div data-testid="state-pane-full" className="panel">
+        <PaneHeader title="State (full snapshot)" />
+        <div className="px-3 py-3">
+          <details open className="group mb-2">
+            <summary className="caps mb-2 cursor-pointer text-mute-2 hover:text-fg">
+              before
+            </summary>
+            <Json value={state.before} />
+          </details>
+          <details open className="group">
+            <summary className="caps mb-2 cursor-pointer text-mute-2 hover:text-fg">
+              after
+            </summary>
+            <Json value={state.after} />
+          </details>
+        </div>
       </div>
     );
   }
@@ -97,29 +115,31 @@ function DiffPane({ diff }: { diff: StateDiff }) {
     diff.removed.length === 0 &&
     Object.keys(diff.changed).length === 0;
   return (
-    <div data-testid="state-pane-diff" className="rounded border border-gray-200 p-2">
-      <div className="mb-1 text-gray-600">State diff (shallow)</div>
-      {empty ? (
-        <div className="text-gray-500">no state changes</div>
-      ) : (
-        <>
-          {Object.keys(diff.added).length > 0 ? (
-            <Section label="added" tone="text-emerald-700">
-              <Json value={diff.added} />
-            </Section>
-          ) : null}
-          {diff.removed.length > 0 ? (
-            <Section label="removed" tone="text-red-700">
-              <Json value={diff.removed} />
-            </Section>
-          ) : null}
-          {Object.keys(diff.changed).length > 0 ? (
-            <Section label="changed" tone="text-amber-700">
-              <Json value={diff.changed} />
-            </Section>
-          ) : null}
-        </>
-      )}
+    <div data-testid="state-pane-diff" className="panel">
+      <PaneHeader title="State diff" hint="shallow" />
+      <div className="px-3 py-3">
+        {empty ? (
+          <div className="font-mono text-[11px] text-mute">no state changes</div>
+        ) : (
+          <div className="space-y-3">
+            {Object.keys(diff.added).length > 0 ? (
+              <Section label="added" tone="mint">
+                <Json value={diff.added} />
+              </Section>
+            ) : null}
+            {diff.removed.length > 0 ? (
+              <Section label="removed" tone="coral">
+                <Json value={diff.removed} />
+              </Section>
+            ) : null}
+            {Object.keys(diff.changed).length > 0 ? (
+              <Section label="changed" tone="amber">
+                <Json value={diff.changed} />
+              </Section>
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -134,9 +154,24 @@ function Pane({
   note?: string;
 }) {
   return (
-    <div className="rounded border border-gray-200 p-2">
-      <div className="mb-1 text-gray-600">{title}</div>
-      {note ? <div className="text-gray-500">{note}</div> : <Json value={body} />}
+    <div className="panel">
+      <PaneHeader title={title} />
+      <div className="px-3 py-3">
+        {note ? (
+          <div className="font-mono text-[11px] text-mute">{note}</div>
+        ) : (
+          <Json value={body} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PaneHeader({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="hairline-b flex items-center justify-between px-3 py-2">
+      <span className="caps text-fg">{title}</span>
+      {hint ? <span className="caps text-mute">{hint}</span> : null}
     </div>
   );
 }
@@ -147,23 +182,41 @@ function Section({
   children,
 }: {
   label: string;
-  tone: string;
+  tone: 'mint' | 'coral' | 'amber';
   children: React.ReactNode;
 }) {
+  const ring =
+    tone === 'mint'
+      ? 'border-mint/30 bg-mint/[0.04]'
+      : tone === 'coral'
+        ? 'border-coral/30 bg-coral/[0.04]'
+        : 'border-amber/30 bg-amber/[0.04]';
+  const text =
+    tone === 'mint'
+      ? 'text-mint'
+      : tone === 'coral'
+        ? 'text-coral'
+        : 'text-amber';
+  const glyph = tone === 'mint' ? '+' : tone === 'coral' ? '−' : '~';
   return (
-    <div className="mt-1">
-      <div className={`text-[10px] uppercase ${tone}`}>{label}</div>
-      {children}
+    <div className={`rounded-[2px] border ${ring}`}>
+      <div className="hairline-b flex items-center gap-2 px-2.5 py-1.5">
+        <span className={`font-mono text-[12px] leading-none ${text}`}>
+          {glyph}
+        </span>
+        <span className={`caps ${text}`}>{label}</span>
+      </div>
+      <div className="px-2.5 py-2">{children}</div>
     </div>
   );
 }
 
 function Json({ value }: { value: unknown }) {
   if (value === null || value === undefined) {
-    return <pre className="text-gray-500">null</pre>;
+    return <pre className="font-mono text-[11px] text-mute">null</pre>;
   }
   return (
-    <pre className="whitespace-pre-wrap break-words text-gray-800">
+    <pre className="overflow-x-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-fg">
       {JSON.stringify(value, null, 2)}
     </pre>
   );

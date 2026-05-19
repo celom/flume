@@ -41,12 +41,7 @@ export function buildRows(record: ExecutionRecord): BuiltRows {
   const flowStartMs = record.startedAt;
   const flowEndMs = record.endedAt ?? lastEventTs(record.events) ?? flowStartMs;
 
-  // Tracks an in-flight step. Map by stepName, since the executor doesn't
-  // start two instances of the same step concurrently.
-  const inflight = new Map<
-    string,
-    { startMs: number; retries: number }
-  >();
+  const inflight = new Map<string, { startMs: number; retries: number }>();
   const rows: GanttRow[] = [];
 
   for (const event of record.events) {
@@ -108,9 +103,6 @@ export function buildRows(record: ExecutionRecord): BuiltRows {
         break;
       }
       case 'flow.break': {
-        // The break step normally also gets a `step.complete`; promote that
-        // row from 'complete' to 'broken' so the timeline shows the
-        // short-circuit, and attach the flow.break event for the diff inspector.
         const existing = rows.find((r) => r.stepName === event.stepName);
         if (existing) {
           existing.status = 'broken';
@@ -123,8 +115,6 @@ export function buildRows(record: ExecutionRecord): BuiltRows {
     }
   }
 
-  // Any still-in-flight steps mean the flow died mid-step. Emit running rows
-  // capped at flowEndMs so the bar is visible.
   for (const [stepName, slot] of inflight) {
     rows.push({
       id: `${stepName}@${slot.startMs}`,
@@ -155,73 +145,202 @@ export function Gantt({ record, selectedRowId, onSelectRow }: GanttProps) {
   const totalMs = Math.max(1, flowEndMs - flowStartMs);
 
   return (
-    <div className="font-mono text-xs">
-      <div className="mb-2 flex items-center justify-between text-gray-600">
-        <span>{rows.length} step rows</span>
-        <span>{totalMs}ms total</span>
+    <div className="panel overflow-hidden">
+      {/* meta strip */}
+      <div className="hairline-b flex items-center justify-between px-4 py-2.5 text-[11px]">
+        <div className="flex items-center gap-4 text-mute-2">
+          <span className="caps">Step rows</span>
+          <span className="num text-fg">{rows.length} step rows</span>
+        </div>
+        <div className="flex items-center gap-4 text-mute-2">
+          <Legend />
+          <span className="caps">Total</span>
+          <span className="num text-signal">{totalMs}ms</span>
+        </div>
       </div>
-      <div className="space-y-1">
-        {rows.map((row) => {
+
+      {/* timeline ruler */}
+      <Ruler totalMs={totalMs} />
+
+      {/* rows */}
+      <ol className="space-y-0">
+        {rows.map((row, idx) => {
           const left = (row.startMs / totalMs) * 100;
-          // Skipped rows have zero width — render a small fixed pip so the row is visible.
-          const width = Math.max(
-            row.status === 'skipped' ? 0.5 : 0.5,
-            ((row.endMs - row.startMs) / totalMs) * 100,
-          );
+          const widthRaw = ((row.endMs - row.startMs) / totalMs) * 100;
+          const width = Math.max(row.status === 'skipped' ? 0.6 : 0.6, widthRaw);
           const isSelected = row.id === selectedRowId;
+          const dur = row.endMs - row.startMs;
           return (
-            <button
+            <li
               key={row.id}
-              type="button"
-              onClick={() => onSelectRow?.(row)}
-              data-testid={`gantt-row-${row.stepName}`}
-              data-status={row.status}
-              className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-gray-100 ${
-                isSelected ? 'bg-blue-50' : ''
-              }`}
+              className={`hairline-b last:border-b-0 ${idx % 2 === 1 ? 'bg-ink-2/30' : ''}`}
             >
-              <span className="inline-block w-40 truncate text-gray-800">
-                {row.stepName}
-                {row.retries > 0 ? (
-                  <span className="ml-1 text-amber-700">
-                    ⟲{row.retries}
+              <button
+                type="button"
+                onClick={() => onSelectRow?.(row)}
+                data-testid={`gantt-row-${row.stepName}`}
+                data-status={row.status}
+                className={[
+                  'group grid w-full grid-cols-[200px_1fr_88px] items-center gap-4 px-4 py-2.5 text-left transition-colors',
+                  isSelected
+                    ? 'bg-signal/[0.06]'
+                    : 'hover:bg-ink-3/40',
+                ].join(' ')}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <StatusGlyph status={row.status} active={isSelected} />
+                  <span
+                    className={`truncate text-[12px] ${isSelected ? 'text-signal' : 'text-fg'}`}
+                  >
+                    {row.stepName}
                   </span>
-                ) : null}
-              </span>
-              <span className="relative h-4 flex-1 rounded bg-gray-100">
-                <span
-                  className={statusBarClass(row.status)}
-                  style={{ left: `${left}%`, width: `${width}%` }}
-                  data-testid={`gantt-bar-${row.stepName}`}
-                />
-              </span>
-              <span className="w-20 text-right tabular-nums text-gray-500">
-                {row.endMs - row.startMs}ms
-              </span>
-            </button>
+                  {row.retries > 0 ? (
+                    <span
+                      className="chip chip-amber !py-0 !text-[9px]"
+                      aria-label={`${row.retries} retries`}
+                    >
+                      ⟲{row.retries}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* timeline rail */}
+                <div className="timeline-grid relative h-5 rounded-sm border border-line/60 bg-ink-2/60">
+                  <span
+                    className={`animate-bar absolute top-1/2 -translate-y-1/2 ${barClass(row.status, isSelected)}`}
+                    style={{
+                      left: `${left}%`,
+                      width: `${width}%`,
+                      animationDelay: `${idx * 28}ms`,
+                    }}
+                    data-testid={`gantt-bar-${row.stepName}`}
+                  />
+                  {row.status === 'skipped' ? (
+                    <span
+                      className="absolute top-1/2 z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-mute-2/60 bg-ink-2"
+                      style={{ left: `${left}%` }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </div>
+
+                <div className="num text-right text-[11px] text-mute-2">
+                  {dur > 0 ? `${dur}ms` : '·'}
+                </div>
+              </button>
+            </li>
           );
         })}
         {rows.length === 0 ? (
-          <div className="p-4 text-gray-500">No step events yet.</div>
+          <li className="px-4 py-12 text-center text-[12px] text-mute-2">
+            No step events yet.
+          </li>
         ) : null}
-      </div>
+      </ol>
     </div>
   );
 }
 
-function statusBarClass(status: GanttRowStatus): string {
-  // Absolutely positioned inside the rail; colours encode status.
-  const base = 'absolute top-0 bottom-0 rounded';
+function Ruler({ totalMs }: { totalMs: number }) {
+  const ticks = [0, 25, 50, 75, 100];
+  return (
+    <div
+      className="hairline-b grid grid-cols-[200px_1fr_88px] items-center gap-4 px-4 py-1.5"
+      aria-hidden="true"
+    >
+      <div className="caps text-mute">Step</div>
+      <div className="relative h-3 text-[9px]">
+        {ticks.map((p) => (
+          <span
+            key={p}
+            className="absolute top-0 -translate-x-1/2 text-mute"
+            style={{ left: `${p}%` }}
+          >
+            {Math.round((totalMs * p) / 100)}ms
+          </span>
+        ))}
+      </div>
+      <div className="caps text-right text-mute">Δ</div>
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="hidden items-center gap-2 md:flex">
+      <Swatch label="complete" cls="bg-mint" />
+      <Swatch label="error" cls="bg-coral" />
+      <Swatch label="broken" cls="bg-violet" />
+      <Swatch label="running" cls="bg-signal" />
+    </div>
+  );
+}
+
+function Swatch({ label, cls }: { label: string; cls: string }) {
+  return (
+    <span className="caps flex items-center gap-1 text-[8px] text-mute">
+      <span className={`h-2 w-2 rounded-[1px] ${cls}`} />
+      {label}
+    </span>
+  );
+}
+
+function StatusGlyph({
+  status,
+  active,
+}: {
+  status: GanttRowStatus;
+  active: boolean;
+}) {
+  const tone =
+    status === 'complete'
+      ? 'text-mint border-mint/40'
+      : status === 'error'
+        ? 'text-coral border-coral/50'
+        : status === 'broken'
+          ? 'text-violet border-violet/50'
+          : status === 'running'
+            ? 'text-signal border-signal/50'
+            : 'text-mute-2 border-line-2';
+  return (
+    <span
+      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border bg-ink-1 text-[9px] ${tone} ${active ? 'shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-signal)_30%,transparent)]' : ''}`}
+      aria-hidden="true"
+    >
+      {glyphFor(status)}
+    </span>
+  );
+}
+
+function glyphFor(status: GanttRowStatus): string {
   switch (status) {
     case 'complete':
-      return `${base} bg-emerald-500`;
+      return '✓';
     case 'error':
-      return `${base} bg-red-500`;
-    case 'skipped':
-      return `${base} bg-gray-300 opacity-60`;
+      return '×';
     case 'broken':
-      return `${base} bg-purple-500`;
+      return '◇';
+    case 'skipped':
+      return '–';
     case 'running':
-      return `${base} bg-blue-300 opacity-70`;
+      return '·';
+  }
+}
+
+function barClass(status: GanttRowStatus, selected: boolean): string {
+  const base =
+    'h-3 rounded-[2px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]';
+  const hl = selected ? 'ring-1 ring-signal/40' : '';
+  switch (status) {
+    case 'complete':
+      return `${base} ${hl} bg-gradient-to-r from-mint to-mint/80`;
+    case 'error':
+      return `${base} ${hl} bg-gradient-to-r from-coral to-coral/80`;
+    case 'broken':
+      return `${base} ${hl} bg-gradient-to-r from-violet to-violet/80`;
+    case 'skipped':
+      return `${base} bg-line-2 opacity-60`;
+    case 'running':
+      return `${base} ${hl} bg-gradient-to-r from-signal to-signal/70 opacity-90`;
   }
 }
