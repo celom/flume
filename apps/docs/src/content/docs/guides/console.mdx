@@ -1,0 +1,106 @@
+---
+title: Console
+description: Local-dev UI for inspecting Prose flow executions — Gantt trace, catalog, live tail.
+sidebar:
+  order: 11
+---
+
+The `@celom/prose-observer` package ships a local-dev observability tool: a `FlowObserver` that records every event, an HTTP + WebSocket server, and a Vite-built SPA with three views.
+
+The SPA is bundled into the package itself, so end users install one extra dependency and get the UI for free.
+
+## Install
+
+```sh
+npm install --save-dev @celom/prose-observer
+```
+
+## Quickstart
+
+```typescript
+import { createFlow } from '@celom/prose';
+import {
+  consoleObserver,
+  mergeObservers,
+  startServer,
+} from '@celom/prose-observer';
+import { pinoObserver } from '@celom/prose';
+
+const observer = consoleObserver();
+const server = await startServer({ port: 4000, eventStream: observer.events });
+console.log(`Prose Console: ${server.url}`); // http://127.0.0.1:4000
+
+await flow.execute(input, deps, {
+  // mergeObservers combines pinoObserver with the in-memory consoleObserver
+  observer: mergeObservers(pinoObserver(logger), observer),
+  correlationId: crypto.randomUUID(),
+});
+```
+
+Open `http://127.0.0.1:4000` once a flow has run to see the trace.
+
+## Views
+
+### Trace (`/?correlationId=<id>`)
+
+A Gantt timeline of one execution. Each row is one step — retries collapse onto the same row and surface as a `⟲N` badge; `.parallel()` groups render as a single bar (the observer emits one `step.start`/`step.complete` pair per group); skipped rows fade; rows whose flow short-circuited via `breakIf` go purple. Click any row to see the step's result and state delta in the inspector below.
+
+### Catalog (`/catalog`)
+
+Per-flow aggregates over the retained ring buffer: run count, p50, p95, error rate. Click a flow for the per-step drilldown plus the last twenty executions, each linking back into the trace view.
+
+### Live tail (`/live`)
+
+WebSocket-driven feed of incoming events in arrival order. Pause / resume the stream and toggle auto-scroll. The server drops the oldest queued events past 256 in-flight and surfaces a `dropped` heartbeat — refresh the affected trace to backfill.
+
+## Standalone CLI
+
+```sh
+# Direct bin:
+npx prose-console --port=4321
+
+# Or via the @celom/prose CLI (lazy-imports the observer package):
+npx prose console --port=4321
+```
+
+`--host=<host>` and `--max-executions=<n>` are also supported. Standalone mode only serves the UI — no in-process flow is pushing events, so the views stay empty until you feed the running EventStream another way (the in-process API in the quickstart is the supported v1 path).
+
+## Configuration
+
+```typescript
+consoleObserver({
+  maxExecutions: 100, // ring buffer size
+  stateCapture: 'diff', // 'diff' (default) | 'full' | 'off'
+  redact: (event) => event, // composes on top of the default pass
+});
+```
+
+### Redaction
+
+Every event runs through a default key-based redaction pass before it reaches the stream. The default keys (case-insensitive, matched at every depth up to 8 levels) are:
+
+`authorization, password, apikey, api_key, secret, token, accesstoken, refreshtoken, creditcard, cardnumber, cvv, ssn, pin, cookie, set-cookie`
+
+Provide your own `redact` to add keys or to drop events (return `null`).
+
+### State capture
+
+`'diff'` (default) attaches `{ added, removed, changed }` per `step.complete`. `'full'` swaps in before/after snapshots — useful for small state; the observer logs a one-shot warning once a snapshot crosses ~1MB. `'off'` omits state entirely.
+
+## Security
+
+- The server binds to `127.0.0.1`. Pass `allowRemote: true` to bind elsewhere — the observer logs a red startup warning and there's no auth.
+- Treat this as a local-dev tool. Don't expose its endpoints from production.
+- Review the default redaction list against your domain; extend with the `redact` option as needed.
+
+## Known v1 limitations
+
+- Parallel sub-branches show as one row. Named-handler `.parallel()` is on the roadmap.
+- No cross-restart persistence. The ring buffer is in-memory; restarts lose retained executions.
+- Catalog covers only flows that have executed at least once in this process.
+- Concurrent runs of the same flow without `options.correlationId` may cross-attribute flow-level events. The observer warns once per process when `correlationId` is missing.
+
+## See also
+
+- [MCP server](/prose/mcp) — give AI assistants direct access to Prose APIs.
+- [Observability](/prose/guides/observability) — the underlying `FlowObserver` interface.

@@ -231,6 +231,33 @@ describe('consoleObserver — integration with @celom/prose', () => {
     expect(complete.state).toBeUndefined();
   });
 
+  it('warns once when stateCapture: "full" snapshots over 1MB of state', async () => {
+    const observer = consoleObserver<
+      Record<string, never>,
+      EmptyDeps
+    >({ stateCapture: 'full' });
+
+    // ~1.2MB of state baked from a long string.
+    const big = 'x'.repeat(1_200_000);
+    const flow = createFlow<Record<string, never>, EmptyDeps>('big-state-flow')
+      .step('first', () => ({ blob: big }))
+      .step('second', () => ({ blob2: big }))
+      .build();
+
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      await flow.execute({}, {}, { observer });
+      await flow.execute({}, {}, { observer });
+
+      const sizeWarnCalls = spy.mock.calls.filter((args) =>
+        String(args[0] ?? '').includes("stateCapture: 'full'"),
+      );
+      expect(sizeWarnCalls).toHaveLength(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('drops events when the user redactor returns null', async () => {
     const observer = consoleObserver<{ x: number }, EmptyDeps>({
       redact: (event) => (event.type === 'step.start' ? null : event),

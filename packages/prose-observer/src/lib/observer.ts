@@ -70,6 +70,8 @@ export class ConsoleObserverImpl<
   private readonly stateCaptureMode: StateCaptureMode;
   private readonly redactKeys: ReadonlySet<string>;
   private readonly userRedact?: (event: ObserverEvent) => ObserverEvent | null;
+  /** Latch for the once-per-process oversized-state warning under `stateCapture: 'full'`. */
+  private warnedFullStateSize = false;
   /**
    * Map<flowName, correlationId> for the *currently running* flow with that
    * name. Concurrent runs of the same flow share a slot — see the v1
@@ -285,9 +287,38 @@ export class ConsoleObserverImpl<
   private captureState(before: unknown, after: unknown): StateCapture | undefined {
     if (this.stateCaptureMode === 'off') return undefined;
     if (this.stateCaptureMode === 'full') {
+      this.maybeWarnFullStateSize(after);
       return { mode: 'full', before, after };
     }
     return { mode: 'diff', diff: shallowStateDiff(before, after) };
+  }
+
+  /**
+   * Surfaces a one-shot console.warn when `stateCapture: 'full'` is dumping
+   * very large state snapshots — these accumulate in the ring buffer and on
+   * every WS frame, so callers should know to switch to `'diff'`.
+   *
+   * 1MB is rough on purpose: JSON.stringify gives us byte-ish cost; the
+   * goal is "you'll notice in DevTools," not exact measurement.
+   */
+  private maybeWarnFullStateSize(state: unknown): void {
+    if (this.warnedFullStateSize) return;
+    let bytes = 0;
+    try {
+      bytes = JSON.stringify(state ?? null).length;
+    } catch {
+      // Cyclic state — punt; the redaction pass will neutralise it anyway.
+      return;
+    }
+    if (bytes > 1_000_000) {
+      this.warnedFullStateSize = true;
+      console.warn(
+        `[prose-observer] stateCapture: 'full' is snapshotting ${bytes} bytes of state. ` +
+          `This is held in the ring buffer and streamed over WS. ` +
+          `Consider stateCapture: 'diff' (default) to reduce memory pressure. ` +
+          `(warning shown once per process)`,
+      );
+    }
   }
 }
 
