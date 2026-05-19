@@ -1,0 +1,20 @@
+{
+  "name": "@celom/prose-observer",
+  "targets": {
+    "bundle": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build", "@celom/console:build"],
+      "inputs": ["{workspaceRoot}/apps/console/dist/**/*"],
+      "outputs": ["{projectRoot}/dist/static"],
+      "options": {
+        "parallel": false,
+        "cwd": "{workspaceRoot}",
+        "commands": [
+          "rm -rf packages/prose-observer/dist/static",
+          "mkdir -p packages/prose-observer/dist/static",
+          "cp -R apps/console/dist/. packages/prose-observer/dist/static"
+        ]
+      }
+    }
+  }
+}

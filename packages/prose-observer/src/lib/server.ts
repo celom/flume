@@ -1,11 +1,11 @@
-import { promises as fs } from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import {
   createServer,
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
 import { extname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL as NodeURL } from 'node:url';
 
 import { WebSocketServer, type WebSocket } from 'ws';
 
@@ -51,12 +51,41 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
  */
 const WS_QUEUE_HIGH_WATER = 256;
 
+/**
+ * Resolves the bundled SPA directory shipped inside `dist/static/`.
+ *
+ * Two cases:
+ *   1. Production / consumer install — `import.meta.url` points at
+ *      `dist/index.js`, so `./static/` lives right next to it.
+ *   2. In-repo source mode (running from TS via `customConditions`) — fall
+ *      back to `<workspaceRoot>/apps/console/dist`, which the dev `vite dev`
+ *      target keeps up-to-date.
+ *
+ * Returns `undefined` when neither exists — the server boots in API-only
+ * mode and `GET /` returns 404.
+ */
+export function resolveDefaultStaticDir(): string | undefined {
+  // Built mode: dist/index.js sibling.
+  const bundled = fileURLToPath(new NodeURL('./static/', import.meta.url));
+  if (existsSync(bundled)) return bundled;
+
+  // Source mode: src/lib/server.ts → workspaceRoot/apps/console/dist
+  if (import.meta.url.includes('/src/lib/')) {
+    const fromSrc = fileURLToPath(
+      new NodeURL('../../../../apps/console/dist/', import.meta.url),
+    );
+    if (existsSync(fromSrc)) return fromSrc;
+  }
+  return undefined;
+}
+
 export async function startServer(
   options: StartServerOptions,
 ): Promise<StartedServer> {
   const port = options.port ?? DEFAULT_PORT;
   const host = options.host ?? DEFAULT_HOST;
   const allowRemote = options.allowRemote ?? false;
+  const staticDir = options.staticDir ?? resolveDefaultStaticDir();
 
   if (!LOOPBACK_HOSTS.has(host) && !allowRemote) {
     throw new Error(
@@ -71,8 +100,10 @@ export async function startServer(
     );
   }
 
+  const resolvedOptions: StartServerOptions = { ...options, staticDir };
+
   const http = createServer((req, res) => {
-    handleHttpRequest(req, res, options).catch((err) => {
+    handleHttpRequest(req, res, resolvedOptions).catch((err) => {
       console.error('[prose-observer] request failed', err);
       if (!res.headersSent) {
         sendJson(res, 500, { error: 'internal_error' });
