@@ -69,3 +69,21 @@ Control behavior for missing optional dependencies.
   }
 }
 ```
+
+### `durability`
+
+**Type:** `DurabilityOptions`
+
+Opt-in skip-ahead checkpointing. When set, each successful step persists a checkpoint to the configured store. Re-invoking `execute()` with the same `runId` resumes from the next undone step (or returns the saved result if the run already completed).
+
+```typescript
+import { MemoryDurabilityStore } from '@celom/prose';
+
+const store = new MemoryDurabilityStore();
+
+await flow.execute(input, deps, {
+  durability: { store, runId: input.orderId },
+});
+```
+
+See the [durability guide](/prose/guides/durability/) for the full story and the [DurabilityStore API reference](/prose/api/durability-store/) for the types.

@@ -2,7 +2,7 @@
 title: User Onboarding
 description: A user onboarding flow with validation, retries, conditional steps, and event publishing.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 This example shows a user onboarding flow that validates email, creates an account, optionally sends an SMS, and publishes domain events.
@@ -19,7 +19,6 @@ interface OnboardInput {
 }
 
 const onboardUser = createFlow<OnboardInput>('onboard-user')
-
   // 1. Validate email format
   .validate('checkEmail', (ctx) => {
     if (!ctx.input.email.includes('@'))

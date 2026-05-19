@@ -17,7 +17,71 @@ import type {
   FlowExecutionResult,
   FlowEvent,
   FlowEventPublisher,
+  DurabilityOptions,
+  FlowCheckpoint,
 } from './types.js';
+
+/**
+ * @internal
+ * Discriminated union describing the four kinds of checkpoint writes.
+ * Internal protocol between the executor loop and {@link createCheckpointWriter}
+ * — translated into a {@link FlowCheckpoint} before reaching any store.
+ *
+ * `breakValue` is wrapped in a `{ value }` envelope so that `undefined` can
+ * be a valid break return value while still being distinguishable from
+ * "this was not a break completion."
+ */
+type CheckpointWrite =
+  | { kind: 'running' }
+  | { kind: 'completed'; breakValue?: { value: unknown } }
+  | { kind: 'failed'; failedStep: { name: string; error: string } };
+
+/**
+ * @internal
+ * Build a checkpoint-writer bound to the invariant fields of a single run.
+ * Returns a no-op when durability is not configured, so call sites stay
+ * branch-free.
+ */
+function createCheckpointWriter(
+  durability: DurabilityOptions | undefined,
+  flowName: string,
+  input: unknown,
+  createdAt: Date
+): (
+  state: unknown,
+  completedSteps: ReadonlySet<string>,
+  write: CheckpointWrite
+) => Promise<void> {
+  if (!durability) {
+    return async () => {
+      /* no-op */
+    };
+  }
+  return async (state, completedSteps, write) => {
+    const status: FlowCheckpoint['status'] =
+      write.kind === 'running'
+        ? 'running'
+        : write.kind === 'failed'
+        ? 'failed'
+        : 'completed';
+
+    const checkpoint: FlowCheckpoint = {
+      flowName,
+      runId: durability.runId,
+      input,
+      state,
+      completedSteps: [...completedSteps],
+      status,
+      createdAt,
+      updatedAt: new Date(),
+      ...(write.kind === 'completed' && write.breakValue
+        ? { breakValue: write.breakValue.value }
+        : {}),
+      ...(write.kind === 'failed' ? { failedStep: write.failedStep } : {}),
+    };
+    await durability.store.save(checkpoint);
+  };
+}
 
 /**
  * Throws if the signal is already aborted.
@@ -39,13 +103,15 @@ function throwIfAborted(signal: AbortSignal): void {
 function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) {
     return Promise.reject(
-      signal.reason instanceof Error ? signal.reason : new Error('Aborted'),
+      signal.reason instanceof Error ? signal.reason : new Error('Aborted')
     );
   }
 
   return new Promise<T>((resolve, reject) => {
     function onAbort() {
-      reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+      reject(
+        signal.reason instanceof Error ? signal.reason : new Error('Aborted')
+      );
     }
 
     signal.addEventListener('abort', onAbort, { once: true });
@@ -58,7 +124,7 @@ function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
       (error) => {
         signal.removeEventListener('abort', onAbort);
         reject(error);
-      },
+      }
     );
   });
 }
@@ -70,7 +136,9 @@ function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     if (signal.aborted) {
-      reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+      reject(
+        signal.reason instanceof Error ? signal.reason : new Error('Aborted')
+      );
       return;
     }
 
@@ -81,7 +149,9 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 
     function onAbort() {
       clearTimeout(timer);
-      reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+      reject(
+        signal.reason instanceof Error ? signal.reason : new Error('Aborted')
+      );
     }
 
     signal.addEventListener('abort', onAbort, { once: true });
@@ -91,7 +161,7 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 export class FlowExecutor<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState = Record<string, unknown>,
+  TState extends FlowState = Record<string, unknown>
 > {
   /**
    * Execute a complete flow from configuration
@@ -101,13 +171,47 @@ export class FlowExecutor<
     config: FlowConfig<TInput, TDeps, TState>,
     input: TInput,
     deps: TDeps,
-    options?: FlowExecutionOptions<TInput, TDeps, TState>,
+    options?: FlowExecutionOptions<TInput, TDeps, TState>
   ): Promise<FlowExecutionResult<TState>> {
     const startTime = Date.now();
+    const durability = options?.durability;
+
+    // Load existing checkpoint if durability is configured.
+    // If the run already completed, return the saved value without re-executing.
+    let checkpoint: FlowCheckpoint | null = null;
+    if (durability) {
+      checkpoint = await durability.store.load(durability.runId);
+      if (checkpoint?.status === 'completed') {
+        const hasBreakValue = 'breakValue' in checkpoint;
+        return {
+          value: (hasBreakValue
+            ? checkpoint.breakValue
+            : checkpoint.state) as TState,
+          didBreak: hasBreakValue,
+        };
+      }
+    }
+
+    // On resume, the checkpoint's input/state/completedSteps are authoritative.
+    // The caller's `input` argument is ignored on resume to keep state deterministic.
+    const isResuming = checkpoint !== null;
+    const effectiveInput = (checkpoint ? checkpoint.input : input) as TInput;
+    const completedSteps = new Set<string>(checkpoint?.completedSteps ?? []);
+    const originalCreatedAt = checkpoint?.createdAt ?? new Date(startTime);
+    const persist = createCheckpointWriter(
+      durability,
+      config.name,
+      effectiveInput,
+      originalCreatedAt
+    );
+
     const meta: FlowMeta = {
       flowName: config.name,
       startedAt: new Date(startTime),
       correlationId: options?.correlationId,
+      // Durability-only fields. Left undefined when durability isn't configured
+      // so handlers can rely on `meta.runId !== undefined` to detect durable runs.
+      ...(durability ? { runId: durability.runId, isResuming } : {}),
     };
 
     const observer = options?.observer;
@@ -130,24 +234,24 @@ export class FlowExecutor<
               `Flow execution timeout after ${options.timeout}ms`,
               config.name,
               undefined,
-              options.timeout,
-            ),
+              options.timeout
+            )
           ),
-        options.timeout,
+        options.timeout
       );
     }
 
     // Initialize context
     let context: FlowContext<TInput, TDeps, TState> = {
-      input: Object.freeze(input),
-      state: {} as TState,
+      input: Object.freeze(effectiveInput),
+      state: (checkpoint?.state ?? {}) as TState,
       deps,
       meta,
       signal: flowSignal,
     };
 
     // Notify observer of flow start
-    observer?.onFlowStart?.(config.name, input);
+    observer?.onFlowStart?.(config.name, effectiveInput);
 
     try {
       // Execute each step in sequence
@@ -155,13 +259,25 @@ export class FlowExecutor<
         // Check if flow has been aborted before starting next step
         throwIfAborted(flowSignal);
 
+        // Skip steps already recorded as completed in a prior run.
+        // Their state is already merged in via the loaded checkpoint.
+        if (completedSteps.has(step.name)) {
+          continue;
+        }
+
         // Update current step in meta
         context.meta.currentStep = step.name;
+        if (durability) {
+          context.meta.idempotencyKey = `${durability.runId}:${step.name}`;
+        }
 
         // Check condition if present
         if (step.condition && !step.condition(context)) {
           observer?.onStepSkipped?.(step.name, context);
-          continue; // Skip this step
+          // Persist the skip so resume doesn't re-evaluate the condition.
+          completedSteps.add(step.name);
+          await persist(context.state, completedSteps, { kind: 'running' });
+          continue;
         }
 
         // Handle break step type - short-circuits the flow if condition is met
@@ -180,13 +296,26 @@ export class FlowExecutor<
             const duration = Date.now() - stepStart;
             const totalDuration = Date.now() - startTime;
 
+            // Persist completed-with-break BEFORE notifying observers, so a
+            // crash in observer code doesn't lose the completion record.
+            completedSteps.add(step.name);
+            await persist(context.state, completedSteps, {
+              kind: 'completed',
+              breakValue: { value: breakResult },
+            });
+
             // Notify observers
-            observer?.onStepComplete?.(step.name, breakResult, duration, context);
+            observer?.onStepComplete?.(
+              step.name,
+              breakResult,
+              duration,
+              context
+            );
             observer?.onFlowBreak?.(
               config.name,
               step.name,
               breakResult,
-              totalDuration,
+              totalDuration
             );
 
             // Return early, bypassing remaining steps and .map()
@@ -199,13 +328,21 @@ export class FlowExecutor<
             step.name,
             { __breakConditionMet: false },
             duration,
-            context,
+            context
           );
+          completedSteps.add(step.name);
+          await persist(context.state, completedSteps, { kind: 'running' });
           continue;
         }
 
         // Execute step based on type
-        const result = await this.executeStep(step, context, deps, options, flowSignal);
+        const result = await this.executeStep(
+          step,
+          context,
+          deps,
+          options,
+          flowSignal
+        );
 
         // Merge result into state if applicable
         if (result && typeof result === 'object' && step.type !== 'event') {
@@ -214,7 +351,16 @@ export class FlowExecutor<
             state: { ...context.state, ...result },
           };
         }
+
+        // Persist after each successful step. The step is only added to
+        // completedSteps AFTER its result has been merged into state — so
+        // a crash between handler success and this save will re-run the step.
+        completedSteps.add(step.name);
+        await persist(context.state, completedSteps, { kind: 'running' });
       }
+
+      // Mark run as completed. Persist BEFORE observer notifications.
+      await persist(context.state, completedSteps, { kind: 'completed' });
 
       // Return the final state as output
       const totalDuration = Date.now() - startTime;
@@ -223,6 +369,21 @@ export class FlowExecutor<
       return { value: context.state, didBreak: false };
     } catch (error) {
       const totalDuration = Date.now() - startTime;
+
+      // Best-effort failure persistence. Swallow store errors here so the
+      // original flow error is what the caller sees.
+      try {
+        await persist(context.state, completedSteps, {
+          kind: 'failed',
+          failedStep: {
+            name: context.meta.currentStep ?? '?',
+            error: (error as Error).message,
+          },
+        });
+      } catch {
+        // ignore
+      }
+
       observer?.onFlowError?.(config.name, error as Error, totalDuration);
 
       // If the caller wants no exception, return the partial state
@@ -250,12 +411,19 @@ export class FlowExecutor<
     context: FlowContext<TInput, TDeps, TState>,
     deps: TDeps,
     options: FlowExecutionOptions<TInput, TDeps, TState> | undefined,
-    flowSignal: AbortSignal,
+    flowSignal: AbortSignal
   ) {
     const retryOptions = step.retryOptions;
 
     if (retryOptions) {
-      return this.executeWithRetry(step, context, deps, retryOptions, options, flowSignal);
+      return this.executeWithRetry(
+        step,
+        context,
+        deps,
+        retryOptions,
+        options,
+        flowSignal
+      );
     }
 
     return this.executeSingleStep(step, context, deps, options, flowSignal);
@@ -270,7 +438,7 @@ export class FlowExecutor<
     deps: TDeps,
     retryOptions: RetryOptions,
     options: FlowExecutionOptions<TInput, TDeps, TState> | undefined,
-    flowSignal: AbortSignal,
+    flowSignal: AbortSignal
   ) {
     const observer = options?.observer;
     let lastError: Error | undefined;
@@ -281,7 +449,13 @@ export class FlowExecutor<
       throwIfAborted(flowSignal);
 
       try {
-        return await this.executeSingleStep(step, context, deps, options, flowSignal);
+        return await this.executeSingleStep(
+          step,
+          context,
+          deps,
+          options,
+          flowSignal
+        );
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -305,7 +479,7 @@ export class FlowExecutor<
           step.name,
           attempt,
           retryOptions.maxAttempts,
-          lastError,
+          lastError
         );
 
         // Wait before retrying (abortable — exits immediately if signal fires)
@@ -315,7 +489,7 @@ export class FlowExecutor<
         if (retryOptions.backoffMultiplier) {
           delay = Math.min(
             delay * retryOptions.backoffMultiplier,
-            retryOptions.maxDelayMs || Number.MAX_SAFE_INTEGER,
+            retryOptions.maxDelayMs || Number.MAX_SAFE_INTEGER
           );
         }
       }
@@ -332,7 +506,7 @@ export class FlowExecutor<
     context: FlowContext<TInput, TDeps, TState>,
     deps: TDeps,
     options: FlowExecutionOptions<TInput, TDeps, TState> | undefined,
-    flowSignal: AbortSignal,
+    flowSignal: AbortSignal
   ) {
     const observer = options?.observer;
     const stepStart = Date.now();
@@ -360,10 +534,10 @@ export class FlowExecutor<
               `Step '${step.name}' timed out after ${stepTimeout}ms`,
               context.meta.flowName,
               step.name,
-              stepTimeout,
-            ),
+              stepTimeout
+            )
           ),
-        stepTimeout,
+        stepTimeout
       );
     }
 
@@ -381,7 +555,12 @@ export class FlowExecutor<
           }
 
           case 'transaction': {
-            return await this.executeTransaction(step, stepContext, deps, options);
+            return await this.executeTransaction(
+              step,
+              stepContext,
+              deps,
+              options
+            );
           }
 
           case 'event': {
@@ -391,7 +570,7 @@ export class FlowExecutor<
           default: {
             throw new FlowExecutionError(
               `Unknown step type`,
-              context.meta.flowName,
+              context.meta.flowName
             );
           }
         }
@@ -429,7 +608,7 @@ export class FlowExecutor<
     step: TransactionStepDefinition<TInput, TDeps, TState>,
     context: FlowContext<TInput, TDeps, TState>,
     deps: TDeps,
-    options?: FlowExecutionOptions<TInput, TDeps, TState>,
+    options?: FlowExecutionOptions<TInput, TDeps, TState>
   ) {
     // Get database instance from deps
     const db = deps.db;
@@ -459,7 +638,7 @@ export class FlowExecutor<
   private async executeEvent(
     step: EventStepDefinition<TInput, TDeps, TState>,
     context: FlowContext<TInput, TDeps, TState>,
-    options?: FlowExecutionOptions<TInput, TDeps, TState>,
+    options?: FlowExecutionOptions<TInput, TDeps, TState>
   ): Promise<void> {
     // Get event publisher from deps
     const eventPublisher = context.deps.eventPublisher;
@@ -482,7 +661,7 @@ export class FlowExecutor<
       throw new FlowExecutionError(
         'Event publisher must have publish() method',
         context.meta.flowName,
-        step.name,
+        step.name
       );
     }
 
@@ -510,7 +689,7 @@ export class FlowExecutor<
     publisher: FlowEventPublisher,
     event: FlowEvent,
     channel: string,
-    context: FlowContext<TInput, TDeps, TState>,
+    context: FlowContext<TInput, TDeps, TState>
   ): Promise<void> {
     // Add correlation ID if available
     const eventWithMeta = {

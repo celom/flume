@@ -8,7 +8,13 @@
  */
 
 import { createFlow, type FlowBuilder } from './lib/flow-builder.js';
-import type { BaseFlowDependencies } from './lib/types.js';
+import { MemoryDurabilityStore } from './lib/memory-store.js';
+import type {
+  BaseFlowDependencies,
+  DurabilityOptions,
+  DurabilityStore,
+  FlowCheckpoint,
+} from './lib/types.js';
 
 // ── Setup ────────────────────────────────────────────────
 
@@ -19,7 +25,9 @@ interface OrderInput {
 }
 
 interface OrderDeps extends BaseFlowDependencies {
-  paymentGateway: { charge(amount: number): Promise<{ transactionId: string }> };
+  paymentGateway: {
+    charge(amount: number): Promise<{ transactionId: string }>;
+  };
 }
 
 // ── Flow definition ──────────────────────────────────────
@@ -50,7 +58,7 @@ const orderFlow = createFlow<OrderInput, OrderDeps>('processOrder')
       void (ctx.state.transactionId satisfies string);
       void (ctx.state.user satisfies { id: string; name: string });
       return { discountApplied: true as const };
-    },
+    }
   )
   .map((input, state) => {
     // State should have user, transactionId, and discountApplied
@@ -65,8 +73,10 @@ const orderFlow = createFlow<OrderInput, OrderDeps>('processOrder')
 
 // ── Branching from a shared base ─────────────────────────
 
-const base = createFlow<{ x: number }, never>('branching')
-  .step('double', (ctx) => ({ doubled: ctx.input.x * 2 }));
+const base = createFlow<{ x: number }, never>('branching').step(
+  'double',
+  (ctx) => ({ doubled: ctx.input.x * 2 })
+);
 
 const branchA = base
   .step('addTen', (ctx) => {
@@ -99,7 +109,7 @@ const cachedLookup = createFlow<CacheInput, CacheDeps>('cachedLookup')
   })
   .breakIf(
     (ctx) => ctx.state.cacheHit,
-    (ctx) => ({ fromCache: true as const, value: ctx.state.cachedValue! }),
+    (ctx) => ({ fromCache: true as const, value: ctx.state.cachedValue! })
   )
   .step('fetchFromDb', (ctx) => {
     void (ctx.input.key satisfies string);
@@ -119,7 +129,9 @@ interface FetchDeps extends BaseFlowDependencies {
 
 const parallelFlow = createFlow<{ orgId: string }, FetchDeps>('parallelFetch')
   .step('init', (ctx) => ({ orgId: ctx.input.orgId }))
-  .parallel('fetchAll', 'shallow',
+  .parallel(
+    'fetchAll',
+    'shallow',
     async (ctx) => {
       const users = await ctx.deps.api.getUsers();
       return { users };
@@ -127,14 +139,16 @@ const parallelFlow = createFlow<{ orgId: string }, FetchDeps>('parallelFetch')
     async (ctx) => {
       const posts = await ctx.deps.api.getPosts();
       return { posts };
-    },
+    }
   )
   .step('summarize', (ctx) => {
     // State should have orgId, users, and posts from the parallel step
     void (ctx.state.orgId satisfies string);
     void (ctx.state.users satisfies string[]);
     void (ctx.state.posts satisfies string[]);
-    return { summary: `${ctx.state.users.length} users, ${ctx.state.posts.length} posts` };
+    return {
+      summary: `${ctx.state.users.length} users, ${ctx.state.posts.length} posts`,
+    };
   })
   .build();
 
@@ -143,14 +157,18 @@ const parallelFlow = createFlow<{ orgId: string }, FetchDeps>('parallelFetch')
 function withAuth<
   TInput extends { token: string },
   TDeps extends BaseFlowDependencies,
-  TState extends Record<string, unknown>,
+  TState extends Record<string, unknown>
 >(builder: FlowBuilder<TInput, TDeps, TState>) {
   return builder
     .step('validateToken', (ctx) => ({ tokenData: { sub: ctx.input.token } }))
-    .step('loadUser', (ctx) => ({ user: { id: ctx.state.tokenData.sub, role: 'admin' as const } }));
+    .step('loadUser', (ctx) => ({
+      user: { id: ctx.state.tokenData.sub, role: 'admin' as const },
+    }));
 }
 
-const authedFlow = createFlow<{ token: string; action: string }, never>('authed-action')
+const authedFlow = createFlow<{ token: string; action: string }, never>(
+  'authed-action'
+)
   .pipe(withAuth)
   .step('doAction', (ctx) => {
     // State should have tokenData and user from the piped sub-flow
@@ -165,9 +183,11 @@ const authedFlow = createFlow<{ token: string; action: string }, never>('authed-
 
 const combinedFlow = createFlow<{ id: string }, never>('combined')
   .step('load', () => ({ loaded: true as const }))
-  .parallel('fetch', 'shallow',
+  .parallel(
+    'fetch',
+    'shallow',
     () => ({ a: 1 }),
-    () => ({ b: 'two' }),
+    () => ({ b: 'two' })
   )
   .step('process', (ctx) => {
     // Should see loaded, a, b from prior steps
@@ -188,7 +208,11 @@ interface InventoryItem {
 
 interface WarehouseTx {
   deduct(sku: string, qty: number): Promise<{ remaining: number }>;
-  insertShipment(data: { orderId: string; sku: string; qty: number }): Promise<{ shipmentId: string }>;
+  insertShipment(data: {
+    orderId: string;
+    sku: string;
+    qty: number;
+  }): Promise<{ shipmentId: string }>;
 }
 
 interface WarehouseDeps extends BaseFlowDependencies {
@@ -197,7 +221,10 @@ interface WarehouseDeps extends BaseFlowDependencies {
   };
 }
 
-const fulfillOrder = createFlow<{ orderId: string; items: InventoryItem[] }, WarehouseDeps>('fulfillOrder')
+const fulfillOrder = createFlow<
+  { orderId: string; items: InventoryItem[] },
+  WarehouseDeps
+>('fulfillOrder')
   .step('loadOrder', (ctx) => {
     return { orderId: ctx.input.orderId, items: ctx.input.items };
   })
@@ -224,12 +251,81 @@ const fulfillOrder = createFlow<{ orderId: string; items: InventoryItem[] }, War
   })
   .build();
 
+// ── Durability: meta fields, options, store adapter ─────
+
+const durableFlow = createFlow<{ orderId: string }, never>('durableOrder')
+  .step('reserve', (ctx) => {
+    // Durability-only meta fields are optional (undefined when no store is configured)
+    void (ctx.meta.idempotencyKey satisfies string | undefined);
+    void (ctx.meta.runId satisfies string | undefined);
+    void (ctx.meta.isResuming satisfies boolean | undefined);
+    return { reserved: true as const };
+  })
+  .step('ship', (ctx) => {
+    void (ctx.state.reserved satisfies true);
+    return { shipmentId: `ship-${ctx.input.orderId}` };
+  })
+  .map((input, state) => ({
+    orderId: input.orderId,
+    shipmentId: state.shipmentId,
+  }))
+  .build();
+
+// MemoryDurabilityStore satisfies the DurabilityStore interface
+const _memStore: DurabilityStore = new MemoryDurabilityStore();
+
+// DurabilityOptions structural shape
+const _durabilityOpts: DurabilityOptions = {
+  store: new MemoryDurabilityStore(),
+  runId: 'order-42',
+};
+void _durabilityOpts;
+
+// Custom DurabilityStore adapter — verifies the interface contract
+const customStore: DurabilityStore = {
+  async load(runId) {
+    void (runId satisfies string);
+    return null;
+  },
+  async save(checkpoint) {
+    void (checkpoint.flowName satisfies string);
+    void (checkpoint.runId satisfies string);
+    void (checkpoint.input satisfies unknown);
+    void (checkpoint.state satisfies unknown);
+    void (checkpoint.completedSteps satisfies string[]);
+    void (checkpoint.status satisfies 'running' | 'completed' | 'failed');
+    void (checkpoint.breakValue satisfies unknown);
+    void (checkpoint.failedStep satisfies
+      | { name: string; error: string }
+      | undefined);
+    void (checkpoint.createdAt satisfies Date);
+    void (checkpoint.updatedAt satisfies Date);
+  },
+  async delete(runId) {
+    void (runId satisfies string);
+  },
+};
+void customStore;
+
+// FlowCheckpoint structural shape (the value an adapter would persist)
+const _checkpoint: FlowCheckpoint = {
+  flowName: 'durableOrder',
+  runId: 'order-42',
+  input: { orderId: 'o1' },
+  state: { reserved: true },
+  completedSteps: ['reserve'],
+  status: 'running',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+void _checkpoint;
+
 // ── Verify output types ──────────────────────────────────
 
 async function _typeAssertions() {
   const orderResult = await orderFlow.execute(
     { orderId: '1', userId: 'u1', amount: 50 },
-    { paymentGateway: { charge: async () => ({ transactionId: 'tx1' }) } },
+    { paymentGateway: { charge: async () => ({ transactionId: 'tx1' }) } }
   );
   void (orderResult.orderId satisfies string);
   void (orderResult.transactionId satisfies string);
@@ -247,23 +343,25 @@ async function _typeAssertions() {
   // Break output produces a union: normal path | break path
   const cacheResult = await cachedLookup.execute(
     { key: 'test' },
-    { cache: { get: () => null } },
+    { cache: { get: () => null } }
   );
   void (cacheResult.fromCache satisfies boolean);
-  void ('value' in cacheResult && cacheResult.value satisfies string);
-  void ('freshValue' in cacheResult && cacheResult.freshValue satisfies string);
+  void ('value' in cacheResult && (cacheResult.value satisfies string));
+  void (
+    'freshValue' in cacheResult && (cacheResult.freshValue satisfies string)
+  );
 
   // Narrowing works via the discriminant
   if (cacheResult.fromCache) {
-    void (cacheResult satisfies { fromCache: true; value: string; });
+    void (cacheResult satisfies { fromCache: true; value: string });
   } else {
-    void (cacheResult satisfies { fromCache: false; freshValue: string; });
+    void (cacheResult satisfies { fromCache: false; freshValue: string });
   }
 
   // Parallel builder output should merge all handler results + prior state
   const parallelResult = await parallelFlow.execute(
     { orgId: 'org1' },
-    { api: { getUsers: async () => ['a'], getPosts: async () => ['p'] } },
+    { api: { getUsers: async () => ['a'], getPosts: async () => ['p'] } }
   );
   void (parallelResult.orgId satisfies string);
   void (parallelResult.users satisfies string[]);
@@ -273,15 +371,41 @@ async function _typeAssertions() {
   // Transaction output should merge into state
   const fulfillResult = await fulfillOrder.execute(
     { orderId: 'o1', items: [{ sku: 'ABC', qty: 2 }] },
-    { db: { transaction: async (fn) => fn({ deduct: async () => ({ remaining: 8 }), insertShipment: async () => ({ shipmentId: 's1' }) } as WarehouseTx) } },
+    {
+      db: {
+        transaction: async (fn) =>
+          fn({
+            deduct: async () => ({ remaining: 8 }),
+            insertShipment: async () => ({ shipmentId: 's1' }),
+          } as WarehouseTx),
+      },
+    }
   );
   void (fulfillResult.orderId satisfies string);
   void (fulfillResult.items satisfies InventoryItem[]);
   void (fulfillResult.shipmentIds satisfies string[]);
   void (fulfillResult.confirmed satisfies true);
 
+  // Durability option accepted by execute() — output type unaffected by store
+  const store = new MemoryDurabilityStore();
+  const durableResult = await durableFlow.execute(
+    { orderId: 'o1' },
+    undefined as never,
+    { durability: { store, runId: 'order-42' } }
+  );
+  void (durableResult.orderId satisfies string);
+  void (durableResult.shipmentId satisfies string);
+
+  // Store helpers are typed
+  void ((await store.load('order-42')) satisfies FlowCheckpoint | null);
+  void (store.size() satisfies number);
+  void (store.snapshot('order-42') satisfies FlowCheckpoint | null);
+
   // Combined flow chains parallel with subsequent steps
-  const combinedResult = await combinedFlow.execute({ id: 'x' }, undefined as never);
+  const combinedResult = await combinedFlow.execute(
+    { id: 'x' },
+    undefined as never
+  );
   void (combinedResult.loaded satisfies true);
   void (combinedResult.a satisfies number);
   void (combinedResult.b satisfies string);
@@ -297,4 +421,6 @@ void parallelFlow;
 void authedFlow;
 void combinedFlow;
 void fulfillOrder;
+void durableFlow;
+void _memStore;
 void _typeAssertions;

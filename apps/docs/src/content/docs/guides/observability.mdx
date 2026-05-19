@@ -2,7 +2,7 @@
 title: Observability
 description: Hook into flow and step lifecycle events for logging, metrics, and tracing.
 sidebar:
-  order: 9
+  order: 10
 ---
 
 Pass an observer to `.execute()` to hook into lifecycle events for logging, metrics, or distributed tracing.
@@ -21,17 +21,17 @@ await flow.execute(input, deps, { observer });
 
 All hooks are optional — implement only what you need.
 
-| Hook | Called when |
-|------|------------|
-| `onFlowStart(flowName, input)` | Flow begins |
-| `onFlowComplete(flowName, output, duration)` | Flow finishes successfully |
-| `onFlowError(flowName, error, duration)` | Flow fails |
-| `onFlowBreak(flowName, breakStepName, returnValue, duration)` | Flow exits early via `breakIf` |
-| `onStepStart(stepName, context)` | Step begins |
-| `onStepComplete(stepName, result, duration, context)` | Step finishes |
-| `onStepError(stepName, error, duration, context)` | Step fails (after exhausting retries) |
-| `onStepRetry(stepName, attempt, maxAttempts, error)` | Step is about to be retried |
-| `onStepSkipped(stepName, context)` | Conditional step is skipped |
+| Hook                                                          | Called when                           |
+| ------------------------------------------------------------- | ------------------------------------- |
+| `onFlowStart(flowName, input)`                                | Flow begins                           |
+| `onFlowComplete(flowName, output, duration)`                  | Flow finishes successfully            |
+| `onFlowError(flowName, error, duration)`                      | Flow fails                            |
+| `onFlowBreak(flowName, breakStepName, returnValue, duration)` | Flow exits early via `breakIf`        |
+| `onStepStart(stepName, context)`                              | Step begins                           |
+| `onStepComplete(stepName, result, duration, context)`         | Step finishes                         |
+| `onStepError(stepName, error, duration, context)`             | Step fails (after exhausting retries) |
+| `onStepRetry(stepName, attempt, maxAttempts, error)`          | Step is about to be retried           |
+| `onStepSkipped(stepName, context)`                            | Conditional step is skipped           |
 
 ## Inline observer
 

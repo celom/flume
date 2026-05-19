@@ -66,6 +66,10 @@ interface FlowMeta {
   startedAt: Date;
   currentStep?: string;
   correlationId?: string;
+  // Durability-only — present when execute() was passed a \`durability\` option
+  runId?: string;
+  idempotencyKey?: string;
+  isResuming?: boolean;
 }
 
 interface RetryOptions {
@@ -122,6 +126,10 @@ await flow.execute(input, deps, {
     throwOnMissingDatabase: true,
     throwOnMissingEventPublisher: true,
   },
+  durability: {              // Opt-in skip-ahead checkpointing
+    store: new MemoryDurabilityStore(), // or your custom DurabilityStore
+    runId: input.orderId,    // Stable per-run identifier (typically a business ID)
+  },
 });
 \`\`\`
 
@@ -163,6 +171,15 @@ Pass \`ctx.signal\` to async operations inside step handlers:
   return { data: await resp.json() };
 })
 \`\`\`
+
+### Durability (opt-in skip-ahead checkpointing)
+Pass \`durability: { store, runId }\` to \`.execute()\`. After every successful step, Prose persists a checkpoint. A subsequent \`execute()\` with the same \`runId\` resumes from the next undone step (or replays the saved result if the run already completed).
+
+Handlers must be idempotent — a step may run twice across a crash. Pass \`ctx.meta.idempotencyKey\` (\`\${runId}:\${stepName}\`) to external APIs that support idempotency (Stripe, SQS, etc.).
+
+\`MemoryDurabilityStore\` is built in but is for tests/dev only. Production needs a persistent \`DurabilityStore\` adapter.
+
+See \`prose://guides/durability\` and \`prose://api/durability-store\`.
 
 ## Observers
 

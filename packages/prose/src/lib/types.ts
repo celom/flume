@@ -24,8 +24,11 @@ export interface DatabaseClient<TTx = unknown> {
 /**
  * Helper type to extract the transaction client type from the dependencies
  */
-export type TxClientOf<TDeps extends BaseFlowDependencies> =
-  TDeps extends { db: DatabaseClient<infer TTx> } ? TTx : unknown;
+export type TxClientOf<TDeps extends BaseFlowDependencies> = TDeps extends {
+  db: DatabaseClient<infer TTx>;
+}
+  ? TTx
+  : unknown;
 
 // ──────────────────────────────────────────────────────────
 // Event interfaces
@@ -49,6 +52,74 @@ export interface FlowEventPublisher {
   publish(channel: string, event: FlowEvent): Promise<void> | void;
 }
 
+// ──────────────────────────────────────────────────────────
+// Durability interfaces
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Persistent state of a single flow run. The store reads/writes this object
+ * verbatim — adapters are responsible for serialization (typically JSON).
+ *
+ * Steps may run more than once across resumes if the process dies between
+ * a step's success and its checkpoint write. Handlers must therefore be
+ * idempotent — typically by passing `ctx.meta.idempotencyKey` to external
+ * APIs that support it.
+ */
+export interface FlowCheckpoint {
+  flowName: string;
+  runId: string;
+  /** The input the flow was first started with. Used verbatim on resume. */
+  input: unknown;
+  /** Accumulated state at the moment of the last successful step. */
+  state: unknown;
+  /** Names of steps that have completed (or been skipped by condition). */
+  completedSteps: string[];
+  status: 'running' | 'completed' | 'failed';
+  /**
+   * When status is 'completed' AND the flow short-circuited via breakIf,
+   * holds the break return value (bypasses .map()).
+   * Distinct from `state`: a flow completing normally has `breakValue === undefined`.
+   */
+  breakValue?: unknown;
+  /** When status is 'failed', the step that errored after all retries. */
+  failedStep?: { name: string; error: string };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Pluggable durability store. Adapters may live in separate packages
+ * (e.g. @celom/prose-store-sqlite, @celom/prose-store-postgres).
+ *
+ * Implementations should serialize checkpoints atomically — partial writes
+ * defeat the purpose. Adapters MAY clone on read/write to prevent the
+ * executor from mutating stored state.
+ */
+export interface DurabilityStore {
+  /** Return the checkpoint for `runId`, or `null` if none exists. */
+  load(runId: string): Promise<FlowCheckpoint | null>;
+  /** Persist the checkpoint, overwriting any existing entry for the same runId. */
+  save(checkpoint: FlowCheckpoint): Promise<void>;
+  /** Remove the checkpoint. Optional housekeeping for callers. */
+  delete(runId: string): Promise<void>;
+}
+
+/**
+ * Durability configuration for a flow execution.
+ *
+ * Passing the same `runId` to `execute()` after a crash resumes from the
+ * next undone step. Passing the same `runId` after completion returns the
+ * saved result without re-executing.
+ */
+export interface DurabilityOptions {
+  store: DurabilityStore;
+  /**
+   * Stable identifier for this run. Same runId → resume or replay; new runId → fresh run.
+   * Typically derived from a business identifier (e.g., the order ID).
+   */
+  runId: string;
+}
+
 /**
  * Base dependencies required by all flows. Extend this with additional dependencies
  */
@@ -67,6 +138,16 @@ export interface FlowMeta {
   startedAt: Date;
   currentStep?: string;
   correlationId?: string;
+  /**
+   * Stable per-step idempotency key (`${runId}:${currentStep}`).
+   * Present only when durability is configured. Pass this to external APIs
+   * that support idempotency (Stripe, SQS, etc.) so re-runs are safe.
+   */
+  idempotencyKey?: string;
+  /** The DurabilityOptions.runId for this execution, if durability is configured. */
+  runId?: string;
+  /** True when this execution loaded an existing checkpoint rather than starting fresh. */
+  isResuming?: boolean;
 }
 
 /**
@@ -75,7 +156,7 @@ export interface FlowMeta {
 export interface FlowContext<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > {
   readonly input: Readonly<TInput>;
   state: TState;
@@ -96,7 +177,7 @@ export type StepResult<T> = T | void | undefined;
 export type StepCondition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > = (ctx: FlowContext<TInput, TDeps, TState>) => boolean;
 
 /**
@@ -115,7 +196,7 @@ export interface ErrorHandlingConfig {
 export interface FlowExecutionOptions<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > {
   correlationId?: string;
   throwOnError?: boolean;
@@ -127,6 +208,13 @@ export interface FlowExecutionOptions<
   signal?: AbortSignal;
   observer?: FlowObserver<TInput, TDeps, TState>;
   errorHandling?: ErrorHandlingConfig;
+  /**
+   * Opt-in durability. When set, each successful step persists a checkpoint
+   * to the configured store. Re-invoking execute() with the same runId
+   * resumes from the next undone step (or returns the saved result if the
+   * run already completed).
+   */
+  durability?: DurabilityOptions;
 }
 
 /**
@@ -135,7 +223,7 @@ export interface FlowExecutionOptions<
 interface BaseStepDefinition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > {
   name: string;
   condition?: StepCondition<TInput, TDeps, TState>;
@@ -148,7 +236,7 @@ interface BaseStepDefinition<
 export interface ValidationStepDefinition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > extends BaseStepDefinition<TInput, TDeps, TState> {
   type: 'validate';
   handler: (ctx: FlowContext<TInput, TDeps, TState>) => void | Promise<void>;
@@ -160,11 +248,11 @@ export interface ValidationStepDefinition<
 export interface ExecutorStepDefinition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > extends BaseStepDefinition<TInput, TDeps, TState> {
   type: 'step';
   handler: (
-    ctx: FlowContext<TInput, TDeps, TState>,
+    ctx: FlowContext<TInput, TDeps, TState>
   ) => StepResult<unknown> | Promise<StepResult<unknown>>;
 }
 
@@ -174,12 +262,12 @@ export interface ExecutorStepDefinition<
 export interface TransactionStepDefinition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > extends BaseStepDefinition<TInput, TDeps, TState> {
   type: 'transaction';
   handler: (
     ctx: FlowContext<TInput, TDeps, TState>,
-    tx: unknown,
+    tx: unknown
   ) => unknown | Promise<unknown>;
 }
 
@@ -189,12 +277,12 @@ export interface TransactionStepDefinition<
 export interface EventStepDefinition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > extends BaseStepDefinition<TInput, TDeps, TState> {
   type: 'event';
   channel: string;
   handler: (
-    ctx: FlowContext<TInput, TDeps, TState>,
+    ctx: FlowContext<TInput, TDeps, TState>
   ) => FlowEvent | FlowEvent[] | void | Promise<FlowEvent | FlowEvent[] | void>;
 }
 
@@ -204,7 +292,7 @@ export interface EventStepDefinition<
 export type BreakCondition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > = (ctx: FlowContext<TInput, TDeps, TState>) => boolean;
 
 /**
@@ -214,7 +302,7 @@ export type BreakReturnValue<
   TInput,
   TDeps extends BaseFlowDependencies,
   TState extends FlowState,
-  TBreakOutput,
+  TBreakOutput
 > = (ctx: FlowContext<TInput, TDeps, TState>) => TBreakOutput;
 
 /**
@@ -230,7 +318,7 @@ export type BreakReturnValue<
 export interface BreakStepDefinition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > extends BaseStepDefinition<TInput, TDeps, TState> {
   type: 'break';
   breakCondition: BreakCondition<TInput, TDeps, TState>;
@@ -243,7 +331,7 @@ export interface BreakStepDefinition<
 export type StepDefinition<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > =
   | ValidationStepDefinition<TInput, TDeps, TState>
   | ExecutorStepDefinition<TInput, TDeps, TState>
@@ -290,7 +378,7 @@ export class TimeoutError extends Error {
     message: string,
     public flowName: string,
     public stepName?: string,
-    public timeoutMs?: number,
+    public timeoutMs?: number
   ) {
     super(message);
     this.name = 'TimeoutError';
@@ -313,7 +401,7 @@ export interface FlowExecutionResult<TState> {
 export interface FlowConfig<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 > {
   name: string;
   steps: StepDefinition<TInput, TDeps, TState>[];
@@ -324,7 +412,7 @@ export interface FlowConfig<
  * Uses tuple wrapping to properly handle the never type
  */
 export type InferFlowOutput<TState, TMapperOutput> = [TMapperOutput] extends [
-  never,
+  never
 ]
   ? TState
   : TMapperOutput;
@@ -337,14 +425,14 @@ export interface FlowDefinition<
   TDeps extends BaseFlowDependencies,
   TState extends FlowState,
   TMapperOutput = never,
-  TBreakOutputs = never,
+  TBreakOutputs = never
 > {
   name: string;
   steps: StepDefinition<TInput, TDeps, TState>[];
   execute: (
     input: TInput,
     deps: TDeps,
-    options?: FlowExecutionOptions<TInput, TDeps, TState>,
+    options?: FlowExecutionOptions<TInput, TDeps, TState>
   ) => Promise<InferFlowOutput<TState, TMapperOutput> | TBreakOutputs>;
 }
 
@@ -385,7 +473,7 @@ export class ValidationError extends Error {
   static single(
     field: string,
     message: string,
-    value?: unknown,
+    value?: unknown
   ): ValidationError {
     return new ValidationError(message, [{ field, message, value }]);
   }
@@ -394,7 +482,9 @@ export class ValidationError extends Error {
    * Create a validation error for multiple fields
    */
   static multiple(issues: ValidationIssue[]): ValidationError {
-    const message = `Validation failed: ${issues.map((i) => i.field).join(', ')}`;
+    const message = `Validation failed: ${issues
+      .map((i) => i.field)
+      .join(', ')}`;
     return new ValidationError(message, issues);
   }
 
@@ -425,7 +515,7 @@ export class FlowExecutionError extends Error {
     message: string,
     public flowName: string,
     public stepName?: string,
-    public originalError?: Error,
+    public originalError?: Error
   ) {
     super(message);
     this.name = 'FlowExecutionError';
