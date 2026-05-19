@@ -70,5 +70,6 @@
     "test": {
       "dependsOn": ["^build"]
     }
-  }
+  },
+  "analytics": false
 }

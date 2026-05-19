@@ -48,3 +48,6 @@ vitest.config.*.timestamp*
 
 # Astro
 .astro/
+.claude/worktrees
+.nx/polygraph
+.nx/self-healing
