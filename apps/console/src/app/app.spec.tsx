@@ -1,26 +1,44 @@
-import { render } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 import App from './app';
 
 describe('App', () => {
-  it('should render successfully', () => {
-    const { baseElement } = render(
-      <BrowserRouter>
+  it('renders the navigation header', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
         <App />
-      </BrowserRouter>
+      </MemoryRouter>,
     );
-    expect(baseElement).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Prose Console' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'catalog' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'live' })).toBeTruthy();
   });
 
-  it('should have a greeting as the title', () => {
-    const { getAllByText } = render(
-      <BrowserRouter>
+  it('shows the slice-7 placeholder on /catalog', () => {
+    render(
+      <MemoryRouter initialEntries={['/catalog']}>
         <App />
-      </BrowserRouter>
+      </MemoryRouter>,
     );
-    expect(
-      getAllByText(new RegExp('Welcome @celom/console', 'gi')).length > 0
-    ).toBeTruthy();
+    expect(screen.getByText(/slice 7/i)).toBeTruthy();
+  });
+
+  it('shows the slice-8 placeholder on /live', () => {
+    render(
+      <MemoryRouter initialEntries={['/live']}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/slice 8/i)).toBeTruthy();
+  });
+
+  it('prompts for ?correlationId on the trace route when none is set', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/correlationId/i)).toBeTruthy();
   });
 });

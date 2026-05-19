@@ -9,6 +9,13 @@ export default defineConfig(() => ({
   server: {
     port: 4200,
     host: 'localhost',
+    proxy: {
+      // Proxy REST + WS at the observer dev server. In production the SPA is
+      // served BY the same server, so these paths resolve naturally without
+      // a proxy (see slice 9).
+      '/api': 'http://127.0.0.1:4000',
+      '/stream': { target: 'ws://127.0.0.1:4000', ws: true },
+    },
   },
   preview: {
     port: 4200,

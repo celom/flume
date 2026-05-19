@@ -1,48 +1,56 @@
-import NxWelcome from './nx-welcome';
+import { Link, Route, Routes } from 'react-router-dom';
 
-import { Route, Routes, Link } from 'react-router-dom';
+import { TraceView } from '../views/Trace';
 
 export function App() {
   return (
-    <div>
-      <NxWelcome title="@celom/console" />
-
-      {/* START: routes */}
-      {/* These routes and navigation have been generated for you */}
-      {/* Feel free to move and update them to fit your needs */}
-      <br />
-      <hr />
-      <br />
-      <div role="navigation">
-        <ul>
-          <li>
-            <Link to="/">Home</Link>
-          </li>
-          <li>
-            <Link to="/page-2">Page 2</Link>
-          </li>
-        </ul>
-      </div>
+    <div className="min-h-screen">
+      <header className="border-b border-gray-200 bg-white px-6 py-3">
+        <nav className="flex items-center gap-6 font-mono text-sm">
+          <Link to="/" className="font-bold">
+            Prose Console
+          </Link>
+          <Link to="/" className="text-gray-700 hover:underline">
+            trace
+          </Link>
+          <Link to="/catalog" className="text-gray-700 hover:underline">
+            catalog
+          </Link>
+          <Link to="/live" className="text-gray-700 hover:underline">
+            live
+          </Link>
+        </nav>
+      </header>
       <Routes>
+        <Route path="/" element={<TraceView />} />
         <Route
-          path="/"
+          path="/catalog"
           element={
-            <div>
-              This is the generated root route.{' '}
-              <Link to="/page-2">Click here for page 2.</Link>
-            </div>
+            <Placeholder
+              title="Catalog"
+              body="Built in slice 7 — per-flow run counts, p50/p95, error rate."
+            />
           }
         />
         <Route
-          path="/page-2"
+          path="/live"
           element={
-            <div>
-              <Link to="/">Click here to go back to root page.</Link>
-            </div>
+            <Placeholder
+              title="Live tail"
+              body="Built in slice 8 — WS-backed feed of in-flight events."
+            />
           }
         />
       </Routes>
-      {/* END: routes */}
+    </div>
+  );
+}
+
+function Placeholder({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="p-6 font-mono text-sm">
+      <h1 className="text-lg font-bold">{title}</h1>
+      <p className="mt-2 text-gray-600">{body}</p>
     </div>
   );
 }
