@@ -15,15 +15,6 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'live' })).toBeTruthy();
   });
 
-  it('shows the slice-8 placeholder on /live', () => {
-    render(
-      <MemoryRouter initialEntries={['/live']}>
-        <App />
-      </MemoryRouter>,
-    );
-    expect(screen.getByText(/slice 8/i)).toBeTruthy();
-  });
-
   it('prompts for ?correlationId on the trace route when none is set', () => {
     render(
       <MemoryRouter initialEntries={['/']}>

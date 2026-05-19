@@ -1,6 +1,7 @@
 import { Link, Route, Routes } from 'react-router-dom';
 
 import { CatalogView } from '../views/Catalog';
+import { LiveView } from '../views/Live';
 import { TraceView } from '../views/Trace';
 
 export function App() {
@@ -25,25 +26,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<TraceView />} />
         <Route path="/catalog" element={<CatalogView />} />
-        <Route
-          path="/live"
-          element={
-            <Placeholder
-              title="Live tail"
-              body="Built in slice 8 — WS-backed feed of in-flight events."
-            />
-          }
-        />
+        <Route path="/live" element={<LiveView />} />
       </Routes>
-    </div>
-  );
-}
-
-function Placeholder({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="p-6 font-mono text-sm">
-      <h1 className="text-lg font-bold">{title}</h1>
-      <p className="mt-2 text-gray-600">{body}</p>
     </div>
   );
 }
