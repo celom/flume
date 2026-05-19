@@ -1,3 +1,14 @@
+## 0.3.3 (2026-05-19)
+
+### 🚀 Features
+
+- **prose:** durability system + docs + MCP server updates ([#2](https://github.com/celom/prose/pull/2))
+
+### ❤️ Thank You
+
+- Carlos Mimoso
+- Claude Opus 4.7 (1M context)
+
 ## 0.3.2 (2026-02-28)
 
 ### 🚀 Features
