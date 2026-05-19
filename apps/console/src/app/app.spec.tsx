@@ -15,15 +15,6 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'live' })).toBeTruthy();
   });
 
-  it('shows the slice-7 placeholder on /catalog', () => {
-    render(
-      <MemoryRouter initialEntries={['/catalog']}>
-        <App />
-      </MemoryRouter>,
-    );
-    expect(screen.getByText(/slice 7/i)).toBeTruthy();
-  });
-
   it('shows the slice-8 placeholder on /live', () => {
     render(
       <MemoryRouter initialEntries={['/live']}>

@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from 'react-router-dom';
 
+import { CatalogView } from '../views/Catalog';
 import { TraceView } from '../views/Trace';
 
 export function App() {
@@ -23,15 +24,7 @@ export function App() {
       </header>
       <Routes>
         <Route path="/" element={<TraceView />} />
-        <Route
-          path="/catalog"
-          element={
-            <Placeholder
-              title="Catalog"
-              body="Built in slice 7 — per-flow run counts, p50/p95, error rate."
-            />
-          }
-        />
+        <Route path="/catalog" element={<CatalogView />} />
         <Route
           path="/live"
           element={
