@@ -42,3 +42,8 @@ export {
 } from './aggregate.js';
 export { shallowStateDiff } from './diff.js';
 export { DEFAULT_REDACT_KEYS, redactDeep } from './redact.js';
+export {
+  startServer,
+  type StartServerOptions,
+  type StartedServer,
+} from './server.js';

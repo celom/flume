@@ -19,7 +19,6 @@ let warned = false;
 export function warnMissingCorrelationIdOnce(): void {
   if (warned) return;
   warned = true;
-  // eslint-disable-next-line no-console
   console.warn(
     '[prose-observer] flow.execute() called without options.correlationId. ' +
       'The Console will auto-generate one per run; pass options.correlationId ' +

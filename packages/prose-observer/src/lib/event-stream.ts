@@ -106,6 +106,16 @@ export class EventStream {
     return this.executions.get(correlationId);
   }
 
+  /** Full retained records, oldest first. Used by `aggregateExecutions()`. */
+  listRecords(): ExecutionRecord[] {
+    const out: ExecutionRecord[] = [];
+    for (const cid of this.order) {
+      const r = this.executions.get(cid);
+      if (r) out.push(r);
+    }
+    return out;
+  }
+
   /** Snapshots of every retained execution, oldest first. */
   listExecutions(): ExecutionSummary[] {
     return this.order.map((cid) => {

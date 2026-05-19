@@ -46,6 +46,13 @@ export default defineConfig(() => ({
         'node:http',
         'node:path',
         'node:url',
+        // Bare-specifier forms for callers that resolve them without the protocol.
+        'crypto',
+        'fs',
+        'fs/promises',
+        'http',
+        'path',
+        'url',
       ],
     },
   },
