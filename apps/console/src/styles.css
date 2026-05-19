@@ -27,10 +27,10 @@
   --color-sky: #6dc8ff;
 
   /* fonts */
-  --font-mono:
-    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-display:
-    'Bricolage Grotesque', 'Inter Tight', 'Söhne', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+  --font-display: 'Bricolage Grotesque', 'Inter Tight', 'Söhne', system-ui,
+    -apple-system, sans-serif;
 }
 
 @layer base {
@@ -50,8 +50,7 @@
 
   body {
     min-height: 100vh;
-    background-image:
-      radial-gradient(
+    background-image: radial-gradient(
         80% 50% at 50% -10%,
         color-mix(in oklab, var(--color-signal) 5%, transparent),
         transparent 60%
@@ -62,10 +61,7 @@
         transparent 65%
       ),
       url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><circle cx='1' cy='1' r='0.9' fill='%231a1a22'/></svg>");
-    background-size:
-      auto,
-      auto,
-      28px 28px;
+    background-size: auto, auto, 28px 28px;
     background-attachment: fixed;
   }
 
@@ -143,12 +139,11 @@
 
   /* ---------- surfaces ---------- */
   .panel {
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--color-ink-2) 96%, transparent),
-        var(--color-ink-1) 100%
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-ink-2) 96%, transparent),
+      var(--color-ink-1) 100%
+    );
     border: 1px solid var(--color-line);
     border-radius: 4px;
     position: relative;
@@ -162,8 +157,8 @@
     background: var(--color-ink-2);
     border: 1px solid var(--color-line-2);
     border-radius: 4px;
-    box-shadow:
-      0 1px 0 0 color-mix(in oklab, var(--color-fg) 4%, transparent) inset,
+    box-shadow: 0 1px 0 0 color-mix(in oklab, var(--color-fg) 4%, transparent)
+        inset,
       0 24px 60px -24px rgb(0 0 0 / 0.7);
   }
 
@@ -224,7 +219,8 @@
   }
   .dot-signal {
     background: var(--color-signal);
-    box-shadow: 0 0 12px color-mix(in oklab, var(--color-signal) 70%, transparent);
+    box-shadow: 0 0 12px
+      color-mix(in oklab, var(--color-signal) 70%, transparent);
   }
   .dot-mint {
     background: var(--color-mint);
@@ -252,10 +248,7 @@
     border: 1px solid var(--color-line-2);
     background: color-mix(in oklab, var(--color-ink-3) 80%, transparent);
     border-radius: 2px;
-    transition:
-      border-color 120ms ease,
-      background 120ms ease,
-      color 120ms ease;
+    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
   }
   .btn-quiet:hover {
     border-color: var(--color-line-3);
@@ -347,20 +340,17 @@
 /* ---- focus ring ---- */
 :where(button, a, [tabindex]):focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--color-ink-0),
-    0 0 0 3px var(--color-signal);
+  box-shadow: 0 0 0 2px var(--color-ink-0), 0 0 0 3px var(--color-signal);
   border-radius: 4px;
 }
 
 /* ---- gantt rail grid (timeline ticks) ---- */
 .timeline-grid {
-  background-image:
-    linear-gradient(
-      90deg,
-      color-mix(in oklab, var(--color-line) 80%, transparent) 1px,
-      transparent 1px
-    );
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-line) 80%, transparent) 1px,
+    transparent 1px
+  );
   background-size: 10% 100%;
   background-position: 0 0;
 }

@@ -119,7 +119,9 @@ function DiffPane({ diff }: { diff: StateDiff }) {
       <PaneHeader title="State diff" hint="shallow" />
       <div className="px-3 py-3">
         {empty ? (
-          <div className="font-mono text-[11px] text-mute">no state changes</div>
+          <div className="font-mono text-[11px] text-mute">
+            no state changes
+          </div>
         ) : (
           <div className="space-y-3">
             {Object.keys(diff.added).length > 0 ? (
@@ -189,14 +191,14 @@ function Section({
     tone === 'mint'
       ? 'border-mint/30 bg-mint/[0.04]'
       : tone === 'coral'
-        ? 'border-coral/30 bg-coral/[0.04]'
-        : 'border-amber/30 bg-amber/[0.04]';
+      ? 'border-coral/30 bg-coral/[0.04]'
+      : 'border-amber/30 bg-amber/[0.04]';
   const text =
     tone === 'mint'
       ? 'text-mint'
       : tone === 'coral'
-        ? 'text-coral'
-        : 'text-amber';
+      ? 'text-coral'
+      : 'text-amber';
   const glyph = tone === 'mint' ? '+' : tone === 'coral' ? '−' : '~';
   return (
     <div className={`rounded-[2px] border ${ring}`}>

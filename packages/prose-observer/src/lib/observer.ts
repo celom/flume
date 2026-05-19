@@ -11,11 +11,7 @@ import {
 } from './correlation.js';
 import { shallowStateDiff } from './diff.js';
 import { EventStream } from './event-stream.js';
-import type {
-  ObserverEvent,
-  SerializedError,
-  StateCapture,
-} from './events.js';
+import type { ObserverEvent, SerializedError, StateCapture } from './events.js';
 import { buildRedactKeySet, redactDeep } from './redact.js';
 
 export type StateCaptureMode = 'diff' | 'full' | 'off';
@@ -49,7 +45,7 @@ export interface ConsoleObserverOptions {
 export interface ConsoleObserver<
   TInput = unknown,
   TDeps extends BaseFlowDependencies = BaseFlowDependencies,
-  TState extends FlowState = FlowState,
+  TState extends FlowState = FlowState
 > extends FlowObserver<TInput, TDeps, TState> {
   readonly events: EventStream;
 }
@@ -63,7 +59,7 @@ export interface ConsoleObserver<
 export class ConsoleObserverImpl<
   TInput = unknown,
   TDeps extends BaseFlowDependencies = BaseFlowDependencies,
-  TState extends FlowState = FlowState,
+  TState extends FlowState = FlowState
 > implements ConsoleObserver<TInput, TDeps, TState>
 {
   readonly events: EventStream;
@@ -101,7 +97,7 @@ export class ConsoleObserverImpl<
   onFlowComplete(
     flowName: string,
     output: TState,
-    totalDuration: number,
+    totalDuration: number
   ): void {
     const cid = this.takeCorrelationId(flowName);
     this.emit({
@@ -130,7 +126,7 @@ export class ConsoleObserverImpl<
     flowName: string,
     breakStepName: string,
     returnValue: unknown,
-    totalDuration: number,
+    totalDuration: number
   ): void {
     const cid = this.takeCorrelationId(flowName);
     this.emit({
@@ -146,7 +142,7 @@ export class ConsoleObserverImpl<
 
   onStepStart(
     stepName: string,
-    context: FlowContext<TInput, TDeps, TState>,
+    context: FlowContext<TInput, TDeps, TState>
   ): void {
     if (context.meta.correlationId === undefined) {
       warnMissingCorrelationIdOnce();
@@ -164,7 +160,7 @@ export class ConsoleObserverImpl<
     stepName: string,
     result: unknown,
     duration: number,
-    context: FlowContext<TInput, TDeps, TState>,
+    context: FlowContext<TInput, TDeps, TState>
   ): void {
     const stateAfter = this.applyResultToState(context.state, result);
     const state = this.captureState(context.state, stateAfter);
@@ -184,7 +180,7 @@ export class ConsoleObserverImpl<
     stepName: string,
     error: Error,
     duration: number,
-    context: FlowContext<TInput, TDeps, TState>,
+    context: FlowContext<TInput, TDeps, TState>
   ): void {
     this.emit({
       type: 'step.error',
@@ -201,7 +197,7 @@ export class ConsoleObserverImpl<
     stepName: string,
     attempt: number,
     maxAttempts: number,
-    error: Error,
+    error: Error
   ): void {
     // No context on this hook; correlate via the most recent flow.
     // If no flow is active (shouldn't happen mid-flight), skip rather than
@@ -222,7 +218,7 @@ export class ConsoleObserverImpl<
 
   onStepSkipped(
     stepName: string,
-    context: FlowContext<TInput, TDeps, TState>,
+    context: FlowContext<TInput, TDeps, TState>
   ): void {
     this.emit({
       type: 'step.skipped',
@@ -279,12 +275,18 @@ export class ConsoleObserverImpl<
       !Array.isArray(result)
     ) {
       const base = state && typeof state === 'object' ? state : {};
-      return { ...(base as Record<string, unknown>), ...(result as Record<string, unknown>) };
+      return {
+        ...(base as Record<string, unknown>),
+        ...(result as Record<string, unknown>),
+      };
     }
     return state;
   }
 
-  private captureState(before: unknown, after: unknown): StateCapture | undefined {
+  private captureState(
+    before: unknown,
+    after: unknown
+  ): StateCapture | undefined {
     if (this.stateCaptureMode === 'off') return undefined;
     if (this.stateCaptureMode === 'full') {
       this.maybeWarnFullStateSize(after);
@@ -316,7 +318,7 @@ export class ConsoleObserverImpl<
         `[prose-observer] stateCapture: 'full' is snapshotting ${bytes} bytes of state. ` +
           `This is held in the ring buffer and streamed over WS. ` +
           `Consider stateCapture: 'diff' (default) to reduce memory pressure. ` +
-          `(warning shown once per process)`,
+          `(warning shown once per process)`
       );
     }
   }
@@ -343,7 +345,9 @@ function serializeError(err: Error): SerializedError {
 export function consoleObserver<
   TInput = unknown,
   TDeps extends BaseFlowDependencies = BaseFlowDependencies,
-  TState extends FlowState = FlowState,
->(options: ConsoleObserverOptions = {}): ConsoleObserver<TInput, TDeps, TState> {
+  TState extends FlowState = FlowState
+>(
+  options: ConsoleObserverOptions = {}
+): ConsoleObserver<TInput, TDeps, TState> {
   return new ConsoleObserverImpl<TInput, TDeps, TState>(options);
 }

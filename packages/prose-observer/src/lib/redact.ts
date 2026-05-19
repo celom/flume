@@ -37,7 +37,7 @@ const TRUNCATED = '[MaxDepth]';
 export function redactDeep(
   value: unknown,
   lowerKeys: ReadonlySet<string>,
-  maxDepth = 8,
+  maxDepth = 8
 ): unknown {
   const seen = new WeakSet<object>();
 

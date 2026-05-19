@@ -21,7 +21,7 @@ import type {
 export function mergeObservers<
   TInput,
   TDeps extends BaseFlowDependencies,
-  TState extends FlowState,
+  TState extends FlowState
 >(
   ...observers: ReadonlyArray<FlowObserver<TInput, TDeps, TState>>
 ): FlowObserver<TInput, TDeps, TState> {
@@ -30,7 +30,8 @@ export function mergeObservers<
       for (const o of observers) o.onFlowStart?.(flowName, input);
     },
     onFlowComplete(flowName, output, durationMs) {
-      for (const o of observers) o.onFlowComplete?.(flowName, output, durationMs);
+      for (const o of observers)
+        o.onFlowComplete?.(flowName, output, durationMs);
     },
     onFlowError(flowName, error, durationMs) {
       for (const o of observers) o.onFlowError?.(flowName, error, durationMs);

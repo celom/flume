@@ -20,11 +20,7 @@ describe('consoleObserver — integration with @celom/prose', () => {
       .step('two', (ctx) => ({ tripled: ctx.input.x * 3 }))
       .build();
 
-    await flow.execute(
-      { x: 5 },
-      {},
-      { observer, correlationId: 'user-cid-1' },
-    );
+    await flow.execute({ x: 5 }, {}, { observer, correlationId: 'user-cid-1' });
 
     const summaries = observer.events.listExecutions();
     expect(summaries).toHaveLength(1);
@@ -57,7 +53,7 @@ describe('consoleObserver — integration with @celom/prose', () => {
         'shallow',
         () => ({ users: ['u1', 'u2'] }),
         () => ({ posts: ['p1'] }),
-        () => ({ comments: ['c1', 'c2', 'c3'] }),
+        () => ({ comments: ['c1', 'c2', 'c3'] })
       )
       .build();
 
@@ -66,10 +62,10 @@ describe('consoleObserver — integration with @celom/prose', () => {
     const exec = observer.events.listExecutions()[0]!;
     const events = observer.events.getExecution(exec.correlationId)!.events;
     const starts = events.filter(
-      (e) => e.type === 'step.start' && e.stepName === 'fanout',
+      (e) => e.type === 'step.start' && e.stepName === 'fanout'
     );
     const completes = events.filter(
-      (e) => e.type === 'step.complete' && e.stepName === 'fanout',
+      (e) => e.type === 'step.complete' && e.stepName === 'fanout'
     );
     expect(starts).toHaveLength(1);
     expect(completes).toHaveLength(1);
@@ -81,10 +77,9 @@ describe('consoleObserver — integration with @celom/prose', () => {
       EmptyDeps
     >();
 
-    const flow = createFlow<
-      { authorization: string; user: string },
-      EmptyDeps
-    >('redact-flow')
+    const flow = createFlow<{ authorization: string; user: string }, EmptyDeps>(
+      'redact-flow'
+    )
       .step('echo', (ctx) => ({
         echoed: {
           tokenWrap: { token: 'super-secret-token' },
@@ -96,22 +91,21 @@ describe('consoleObserver — integration with @celom/prose', () => {
     await flow.execute(
       { authorization: 'Bearer xyz', user: 'alice' },
       {},
-      { observer },
+      { observer }
     );
 
     const events = observer.events.getExecution(
-      observer.events.listExecutions()[0]!.correlationId,
+      observer.events.listExecutions()[0]!.correlationId
     )!.events;
 
     const flowStart = events.find((e) => e.type === 'flow.start');
     expect(flowStart).toBeDefined();
     expect(
-      (flowStart as { input: { authorization: unknown; user: unknown } })
-        .input,
+      (flowStart as { input: { authorization: unknown; user: unknown } }).input
     ).toEqual({ authorization: '[REDACTED]', user: 'alice' });
 
     const stepComplete = events.find(
-      (e) => e.type === 'step.complete',
+      (e) => e.type === 'step.complete'
     ) as Extract<ObserverEvent, { type: 'step.complete' }>;
     expect(stepComplete.result).toMatchObject({
       echoed: {
@@ -132,11 +126,11 @@ describe('consoleObserver — integration with @celom/prose', () => {
     await flow.execute({}, {}, { observer });
 
     const events = observer.events.getExecution(
-      observer.events.listExecutions()[0]!.correlationId,
+      observer.events.listExecutions()[0]!.correlationId
     )!.events;
     const stepCompletes = events.filter(
       (e): e is Extract<ObserverEvent, { type: 'step.complete' }> =>
-        e.type === 'step.complete',
+        e.type === 'step.complete'
     );
     expect(stepCompletes[0]!.state).toEqual({
       mode: 'diff',
@@ -173,7 +167,7 @@ describe('consoleObserver — integration with @celom/prose', () => {
       .step('first', () => ({ a: 1 }))
       .breakIf(
         (ctx) => ctx.input.skip,
-        () => ({ early: true }),
+        () => ({ early: true })
       )
       .step('never', () => ({ b: 2 }))
       .build();
@@ -191,10 +185,9 @@ describe('consoleObserver — integration with @celom/prose', () => {
   });
 
   it('respects stateCapture: "full" by attaching before/after snapshots', async () => {
-    const observer = consoleObserver<
-      Record<string, never>,
-      EmptyDeps
-    >({ stateCapture: 'full' });
+    const observer = consoleObserver<Record<string, never>, EmptyDeps>({
+      stateCapture: 'full',
+    });
 
     const flow = createFlow<Record<string, never>, EmptyDeps>('full-capture')
       .step('one', () => ({ a: 1 }))
@@ -203,19 +196,23 @@ describe('consoleObserver — integration with @celom/prose', () => {
     await flow.execute({}, {}, { observer });
 
     const events = observer.events.getExecution(
-      observer.events.listExecutions()[0]!.correlationId,
+      observer.events.listExecutions()[0]!.correlationId
     )!.events;
-    const complete = events.find(
-      (e) => e.type === 'step.complete',
-    ) as Extract<ObserverEvent, { type: 'step.complete' }>;
-    expect(complete.state).toEqual({ mode: 'full', before: {}, after: { a: 1 } });
+    const complete = events.find((e) => e.type === 'step.complete') as Extract<
+      ObserverEvent,
+      { type: 'step.complete' }
+    >;
+    expect(complete.state).toEqual({
+      mode: 'full',
+      before: {},
+      after: { a: 1 },
+    });
   });
 
   it('omits state when stateCapture: "off"', async () => {
-    const observer = consoleObserver<
-      Record<string, never>,
-      EmptyDeps
-    >({ stateCapture: 'off' });
+    const observer = consoleObserver<Record<string, never>, EmptyDeps>({
+      stateCapture: 'off',
+    });
 
     const flow = createFlow<Record<string, never>, EmptyDeps>('no-capture')
       .step('one', () => ({ a: 1 }))
@@ -223,19 +220,19 @@ describe('consoleObserver — integration with @celom/prose', () => {
 
     await flow.execute({}, {}, { observer });
     const events = observer.events.getExecution(
-      observer.events.listExecutions()[0]!.correlationId,
+      observer.events.listExecutions()[0]!.correlationId
     )!.events;
-    const complete = events.find(
-      (e) => e.type === 'step.complete',
-    ) as Extract<ObserverEvent, { type: 'step.complete' }>;
+    const complete = events.find((e) => e.type === 'step.complete') as Extract<
+      ObserverEvent,
+      { type: 'step.complete' }
+    >;
     expect(complete.state).toBeUndefined();
   });
 
   it('warns once when stateCapture: "full" snapshots over 1MB of state', async () => {
-    const observer = consoleObserver<
-      Record<string, never>,
-      EmptyDeps
-    >({ stateCapture: 'full' });
+    const observer = consoleObserver<Record<string, never>, EmptyDeps>({
+      stateCapture: 'full',
+    });
 
     // ~1.2MB of state baked from a long string.
     const big = 'x'.repeat(1_200_000);
@@ -250,7 +247,7 @@ describe('consoleObserver — integration with @celom/prose', () => {
       await flow.execute({}, {}, { observer });
 
       const sizeWarnCalls = spy.mock.calls.filter((args) =>
-        String(args[0] ?? '').includes("stateCapture: 'full'"),
+        String(args[0] ?? '').includes("stateCapture: 'full'")
       );
       expect(sizeWarnCalls).toHaveLength(1);
     } finally {
@@ -269,7 +266,7 @@ describe('consoleObserver — integration with @celom/prose', () => {
 
     await flow.execute({ x: 1 }, {}, { observer });
     const events = observer.events.getExecution(
-      observer.events.listExecutions()[0]!.correlationId,
+      observer.events.listExecutions()[0]!.correlationId
     )!.events;
     expect(events.find((e) => e.type === 'step.start')).toBeUndefined();
     expect(events.find((e) => e.type === 'step.complete')).toBeDefined();

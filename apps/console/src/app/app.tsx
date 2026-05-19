@@ -46,10 +46,7 @@ function SideRail() {
           </span>
         </Link>
 
-        <span
-          className="my-1 h-6 w-px bg-line"
-          aria-hidden="true"
-        />
+        <span className="my-1 h-6 w-px bg-line" aria-hidden="true" />
 
         <nav className="flex flex-col items-center gap-1.5">
           <RailLink to="/" label="trace" glyph="T" />
@@ -155,7 +152,10 @@ function Clock() {
     return () => clearInterval(id);
   }, []);
   return (
-    <span className="num text-[11px] tracking-wider text-mute-2" aria-label="clock">
+    <span
+      className="num text-[11px] tracking-wider text-mute-2"
+      aria-label="clock"
+    >
       {t}
     </span>
   );
@@ -163,7 +163,9 @@ function Clock() {
 
 function fmtClock(d: Date): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} utc`;
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(
+    d.getUTCSeconds()
+  )} utc`;
 }
 
 /* ---------- stream pip in the rail ---------- */

@@ -32,7 +32,7 @@ export interface FlowAggregate {
  * ring buffer is small by design.
  */
 export function aggregateExecutions(
-  records: ReadonlyArray<ExecutionRecord>,
+  records: ReadonlyArray<ExecutionRecord>
 ): FlowAggregate[] {
   const byFlow = new Map<string, ExecutionRecord[]>();
   for (const record of records) {
@@ -52,7 +52,7 @@ export function aggregateExecutions(
 
 function buildFlowAggregate(
   flowName: string,
-  records: ReadonlyArray<ExecutionRecord>,
+  records: ReadonlyArray<ExecutionRecord>
 ): FlowAggregate {
   const flowDurations: number[] = [];
   let errors = 0;
@@ -63,7 +63,8 @@ function buildFlowAggregate(
 
   for (const record of records) {
     if (record.status === 'failed') errors++;
-    if (typeof record.durationMs === 'number') flowDurations.push(record.durationMs);
+    if (typeof record.durationMs === 'number')
+      flowDurations.push(record.durationMs);
 
     walkRecordSteps(record.events, perStepBuckets);
   }
@@ -81,7 +82,9 @@ function buildFlowAggregate(
     });
   }
   // Stable per-step order: most-run first, ties alphabetic — matches table UX.
-  perStep.sort((a, b) => b.runs - a.runs || a.stepName.localeCompare(b.stepName));
+  perStep.sort(
+    (a, b) => b.runs - a.runs || a.stepName.localeCompare(b.stepName)
+  );
 
   const sortedFlow = [...flowDurations].sort(numericAsc);
   return {
@@ -99,7 +102,7 @@ function walkRecordSteps(
   buckets: Map<
     string,
     { runs: number; durations: number[]; errors: number; retries: number }
-  >,
+  >
 ): void {
   for (const event of events) {
     switch (event.type) {
@@ -126,7 +129,7 @@ function upsertBucket(
     string,
     { runs: number; durations: number[]; errors: number; retries: number }
   >,
-  stepName: string,
+  stepName: string
 ) {
   let bucket = buckets.get(stepName);
   if (!bucket) {
@@ -144,7 +147,10 @@ function upsertBucket(
  * Sort-based on purpose: the ring buffer caps total samples, so a streaming
  * sketch (t-digest etc.) would be over-engineered for v1.
  */
-export function quantile(sortedValues: ReadonlyArray<number>, q: number): number {
+export function quantile(
+  sortedValues: ReadonlyArray<number>,
+  q: number
+): number {
   if (sortedValues.length === 0) return 0;
   if (sortedValues.length === 1) return sortedValues[0]!;
   const clamped = Math.min(Math.max(q, 0), 1);

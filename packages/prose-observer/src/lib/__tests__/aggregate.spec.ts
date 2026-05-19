@@ -87,23 +87,23 @@ function fixtureRecord(opts: {
           durationMs: opts.totalMs,
         }
       : opts.status === 'failed'
-        ? {
-            type: 'flow.error',
-            correlationId: cid,
-            flowName: opts.flowName,
-            ts: ts++,
-            error: { name: 'Error', message: 'flow failed' },
-            durationMs: opts.totalMs,
-          }
-        : {
-            type: 'flow.break',
-            correlationId: cid,
-            flowName: opts.flowName,
-            ts: ts++,
-            stepName: opts.steps[opts.steps.length - 1]?.name ?? 'unknown',
-            returnValue: { early: true },
-            durationMs: opts.totalMs,
-          },
+      ? {
+          type: 'flow.error',
+          correlationId: cid,
+          flowName: opts.flowName,
+          ts: ts++,
+          error: { name: 'Error', message: 'flow failed' },
+          durationMs: opts.totalMs,
+        }
+      : {
+          type: 'flow.break',
+          correlationId: cid,
+          flowName: opts.flowName,
+          ts: ts++,
+          stepName: opts.steps[opts.steps.length - 1]?.name ?? 'unknown',
+          returnValue: { early: true },
+          durationMs: opts.totalMs,
+        }
   );
 
   return {

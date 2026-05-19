@@ -72,7 +72,7 @@ export function resolveDefaultStaticDir(): string | undefined {
   // Source mode: src/lib/server.ts → workspaceRoot/apps/console/dist
   if (import.meta.url.includes('/src/lib/')) {
     const fromSrc = fileURLToPath(
-      new NodeURL('../../../../apps/console/dist/', import.meta.url),
+      new NodeURL('../../../../apps/console/dist/', import.meta.url)
     );
     if (existsSync(fromSrc)) return fromSrc;
   }
@@ -80,7 +80,7 @@ export function resolveDefaultStaticDir(): string | undefined {
 }
 
 export async function startServer(
-  options: StartServerOptions,
+  options: StartServerOptions
 ): Promise<StartedServer> {
   const port = options.port ?? DEFAULT_PORT;
   const host = options.host ?? DEFAULT_HOST;
@@ -90,13 +90,13 @@ export async function startServer(
   if (!LOOPBACK_HOSTS.has(host) && !allowRemote) {
     throw new Error(
       `[prose-observer] refusing to bind to non-loopback host '${host}' ` +
-        `without allowRemote: true. The Console has no auth.`,
+        `without allowRemote: true. The Console has no auth.`
     );
   }
   if (!LOOPBACK_HOSTS.has(host) && allowRemote) {
     console.warn(
       `\x1b[31m[prose-observer] binding to ${host}:${port}. No auth — ` +
-        `flow inputs/state are exposed to anyone on the network.\x1b[0m`,
+        `flow inputs/state are exposed to anyone on the network.\x1b[0m`
     );
   }
 
@@ -166,7 +166,7 @@ export async function startServer(
 async function handleHttpRequest(
   req: IncomingMessage,
   res: ServerResponse,
-  opts: StartServerOptions,
+  opts: StartServerOptions
 ): Promise<void> {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     sendJson(res, 405, { error: 'method_not_allowed' });
@@ -192,7 +192,7 @@ async function handleHttpRequest(
     return sendJson(
       res,
       200,
-      aggregateExecutions(opts.eventStream.listRecords()),
+      aggregateExecutions(opts.eventStream.listRecords())
     );
   }
 
@@ -217,10 +217,9 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 async function tryServeStatic(
   res: ServerResponse,
   staticDir: string | URL,
-  urlPath: string,
+  urlPath: string
 ): Promise<boolean> {
-  const dir =
-    staticDir instanceof URL ? fileURLToPath(staticDir) : staticDir;
+  const dir = staticDir instanceof URL ? fileURLToPath(staticDir) : staticDir;
   const rooted = resolve(dir);
   const requested = urlPath === '/' ? 'index.html' : urlPath.replace(/^\//, '');
   const resolved = resolve(join(rooted, requested));

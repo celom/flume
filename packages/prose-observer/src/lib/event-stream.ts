@@ -43,9 +43,7 @@ export class EventStream {
 
   constructor(public readonly maxExecutions: number = 100) {
     if (maxExecutions < 1) {
-      throw new RangeError(
-        `maxExecutions must be >= 1, got ${maxExecutions}`,
-      );
+      throw new RangeError(`maxExecutions must be >= 1, got ${maxExecutions}`);
     }
   }
 

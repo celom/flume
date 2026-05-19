@@ -167,13 +167,18 @@ export function Gantt({ record, selectedRowId, onSelectRow }: GanttProps) {
         {rows.map((row, idx) => {
           const left = (row.startMs / totalMs) * 100;
           const widthRaw = ((row.endMs - row.startMs) / totalMs) * 100;
-          const width = Math.max(row.status === 'skipped' ? 0.6 : 0.6, widthRaw);
+          const width = Math.max(
+            row.status === 'skipped' ? 0.6 : 0.6,
+            widthRaw
+          );
           const isSelected = row.id === selectedRowId;
           const dur = row.endMs - row.startMs;
           return (
             <li
               key={row.id}
-              className={`hairline-b last:border-b-0 ${idx % 2 === 1 ? 'bg-ink-2/30' : ''}`}
+              className={`hairline-b last:border-b-0 ${
+                idx % 2 === 1 ? 'bg-ink-2/30' : ''
+              }`}
             >
               <button
                 type="button"
@@ -182,15 +187,15 @@ export function Gantt({ record, selectedRowId, onSelectRow }: GanttProps) {
                 data-status={row.status}
                 className={[
                   'group grid w-full grid-cols-[200px_1fr_88px] items-center gap-4 px-4 py-2.5 text-left transition-colors',
-                  isSelected
-                    ? 'bg-signal/[0.06]'
-                    : 'hover:bg-ink-3/40',
+                  isSelected ? 'bg-signal/[0.06]' : 'hover:bg-ink-3/40',
                 ].join(' ')}
               >
                 <div className="flex min-w-0 items-center gap-2">
                   <StatusGlyph status={row.status} active={isSelected} />
                   <span
-                    className={`truncate text-[12px] ${isSelected ? 'text-signal' : 'text-fg'}`}
+                    className={`truncate text-[12px] ${
+                      isSelected ? 'text-signal' : 'text-fg'
+                    }`}
                   >
                     {row.stepName}
                   </span>
@@ -207,7 +212,10 @@ export function Gantt({ record, selectedRowId, onSelectRow }: GanttProps) {
                 {/* timeline rail */}
                 <div className="timeline-grid relative h-5 rounded-sm border border-line/60 bg-ink-2/60">
                   <span
-                    className={`animate-bar absolute top-1/2 -translate-y-1/2 ${barClass(row.status, isSelected)}`}
+                    className={`animate-bar absolute top-1/2 -translate-y-1/2 ${barClass(
+                      row.status,
+                      isSelected
+                    )}`}
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -296,15 +304,19 @@ function StatusGlyph({
     status === 'complete'
       ? 'text-mint border-mint/40'
       : status === 'error'
-        ? 'text-coral border-coral/50'
-        : status === 'broken'
-          ? 'text-violet border-violet/50'
-          : status === 'running'
-            ? 'text-signal border-signal/50'
-            : 'text-mute-2 border-line-2';
+      ? 'text-coral border-coral/50'
+      : status === 'broken'
+      ? 'text-violet border-violet/50'
+      : status === 'running'
+      ? 'text-signal border-signal/50'
+      : 'text-mute-2 border-line-2';
   return (
     <span
-      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border bg-ink-1 text-[9px] ${tone} ${active ? 'shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-signal)_30%,transparent)]' : ''}`}
+      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border bg-ink-1 text-[9px] ${tone} ${
+        active
+          ? 'shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-signal)_30%,transparent)]'
+          : ''
+      }`}
       aria-hidden="true"
     >
       {glyphFor(status)}

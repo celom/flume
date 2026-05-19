@@ -22,7 +22,7 @@ export function warnMissingCorrelationIdOnce(): void {
   console.warn(
     '[prose-observer] flow.execute() called without options.correlationId. ' +
       'The Console will auto-generate one per run; pass options.correlationId ' +
-      'to align with your own tracing. (warning shown once per process)',
+      'to align with your own tracing. (warning shown once per process)'
   );
 }
 

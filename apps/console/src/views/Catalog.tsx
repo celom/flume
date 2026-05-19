@@ -61,13 +61,13 @@ export interface CatalogContentProps {
 
 export function CatalogContent({ flows, executions }: CatalogContentProps) {
   const [selected, setSelected] = useState<string | null>(
-    flows[0]?.flowName ?? null,
+    flows[0]?.flowName ?? null
   );
 
   const totalRuns = flows.reduce((acc, f) => acc + f.runs, 0);
   const totalErrors = flows.reduce(
     (acc, f) => acc + Math.round(f.runs * f.errorRate),
-    0,
+    0
   );
 
   return (
@@ -168,9 +168,7 @@ function FlowList({
                 onClick={() => onSelect(flow.flowName)}
                 className={[
                   'hairline-b group grid cursor-pointer grid-cols-[1fr_56px_64px_64px_56px] items-center gap-3 px-4 py-2.5 transition-colors last:border-b-0',
-                  isSel
-                    ? 'bg-signal/[0.06]'
-                    : 'hover:bg-ink-3/40',
+                  isSel ? 'bg-signal/[0.06]' : 'hover:bg-ink-3/40',
                 ].join(' ')}
                 style={{
                   animationDelay: `${idx * 24}ms`,
@@ -178,10 +176,14 @@ function FlowList({
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <span
-                    className={`h-3 w-[2px] rounded-[1px] ${isSel ? 'bg-signal' : 'bg-line-2 group-hover:bg-line-3'}`}
+                    className={`h-3 w-[2px] rounded-[1px] ${
+                      isSel ? 'bg-signal' : 'bg-line-2 group-hover:bg-line-3'
+                    }`}
                   />
                   <span
-                    className={`truncate text-[12px] ${isSel ? 'text-signal' : 'text-fg'}`}
+                    className={`truncate text-[12px] ${
+                      isSel ? 'text-signal' : 'text-fg'
+                    }`}
                   >
                     {flow.flowName}
                   </span>
@@ -194,7 +196,9 @@ function FlowList({
                   {fmtMs(flow.p95)}
                 </span>
                 <span
-                  className={`num text-right ${flow.errorRate > 0 ? 'text-coral' : 'text-mute'}`}
+                  className={`num text-right ${
+                    flow.errorRate > 0 ? 'text-coral' : 'text-mute'
+                  }`}
                 >
                   {fmtPct(flow.errorRate)}
                 </span>
@@ -248,9 +252,7 @@ function FlowDrilldown({
         <SectionHeader
           eyebrow="02"
           title={`Last ${executions.length} executions`}
-          right={
-            <span className="caps text-mute">click to open trace</span>
-          }
+          right={<span className="caps text-mute">click to open trace</span>}
         />
         <RecentExecutions executions={executions} />
       </div>
@@ -303,12 +305,16 @@ function PerStepTable({ steps }: { steps: PerStepAggregate[] }) {
                 {fmtMs(step.p95)}
               </td>
               <td
-                className={`num px-3 py-2 text-right ${step.errorRate > 0 ? 'text-coral' : 'text-mute'}`}
+                className={`num px-3 py-2 text-right ${
+                  step.errorRate > 0 ? 'text-coral' : 'text-mute'
+                }`}
               >
                 {fmtPct(step.errorRate)}
               </td>
               <td
-                className={`num px-3 py-2 text-right ${step.retryRate > 0 ? 'text-amber' : 'text-mute'}`}
+                className={`num px-3 py-2 text-right ${
+                  step.retryRate > 0 ? 'text-amber' : 'text-mute'
+                }`}
               >
                 {step.retryRate.toFixed(2)}
               </td>
@@ -352,7 +358,9 @@ function RecentExecutions({ executions }: { executions: ExecutionSummary[] }) {
             >
               <td className="px-3 py-2">
                 <Link
-                  to={`/?correlationId=${encodeURIComponent(exec.correlationId)}`}
+                  to={`/?correlationId=${encodeURIComponent(
+                    exec.correlationId
+                  )}`}
                   className="font-mono text-fg group-hover:text-signal"
                 >
                   {exec.correlationId}
@@ -395,14 +403,16 @@ function Stat({
     tone === 'signal'
       ? 'text-signal'
       : tone === 'coral'
-        ? 'text-coral'
-        : tone === 'mute'
-          ? 'text-fg-strong'
-          : 'text-fg-strong';
+      ? 'text-coral'
+      : tone === 'mute'
+      ? 'text-fg-strong'
+      : 'text-fg-strong';
   return (
     <div className="panel px-4 py-3">
       <div className="caps mb-2">{label}</div>
-      <div className={`num display-roman text-[26px] leading-none ${valueTone}`}>
+      <div
+        className={`num display-roman text-[26px] leading-none ${valueTone}`}
+      >
         {value}
       </div>
     </div>
@@ -422,8 +432,8 @@ function MiniStat({
     tone === 'signal'
       ? 'text-signal'
       : tone === 'coral'
-        ? 'text-coral'
-        : 'text-fg-strong';
+      ? 'text-coral'
+      : 'text-fg-strong';
   return (
     <div className="rounded-[2px] border border-line bg-ink-1/60 px-3 py-2">
       <div className="caps mb-1">{label}</div>

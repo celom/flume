@@ -6,7 +6,7 @@ describe('redactDeep', () => {
   it('replaces the value of default-listed keys at top level', () => {
     const result = redactDeep(
       { authorization: 'Bearer abc', other: 'fine' },
-      keys,
+      keys
     );
     expect(result).toEqual({ authorization: '[REDACTED]', other: 'fine' });
   });
@@ -14,7 +14,7 @@ describe('redactDeep', () => {
   it('matches keys case-insensitively', () => {
     const result = redactDeep(
       { Authorization: 'x', PASSWORD: 'y', ApiKey: 'z' },
-      keys,
+      keys
     );
     expect(result).toEqual({
       Authorization: '[REDACTED]',
@@ -25,8 +25,11 @@ describe('redactDeep', () => {
 
   it('walks into nested objects', () => {
     const result = redactDeep(
-      { user: { name: 'alice', token: 't1' }, depth1: { depth2: { secret: 's' } } },
-      keys,
+      {
+        user: { name: 'alice', token: 't1' },
+        depth1: { depth2: { secret: 's' } },
+      },
+      keys
     );
     expect(result).toEqual({
       user: { name: 'alice', token: '[REDACTED]' },
@@ -37,7 +40,7 @@ describe('redactDeep', () => {
   it('walks into arrays', () => {
     const result = redactDeep(
       { items: [{ apiKey: 'a' }, { apiKey: 'b' }] },
-      keys,
+      keys
     );
     expect(result).toEqual({
       items: [{ apiKey: '[REDACTED]' }, { apiKey: '[REDACTED]' }],

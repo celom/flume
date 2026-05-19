@@ -25,9 +25,7 @@ describe('warnMissingCorrelationIdOnce', () => {
       warnMissingCorrelationIdOnce();
       warnMissingCorrelationIdOnce();
       expect(spy).toHaveBeenCalledTimes(1);
-      expect(spy.mock.calls[0]?.[0]).toMatch(
-        /options\.correlationId/i,
-      );
+      expect(spy.mock.calls[0]?.[0]).toMatch(/options\.correlationId/i);
     } finally {
       spy.mockRestore();
     }

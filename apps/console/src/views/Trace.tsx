@@ -217,7 +217,7 @@ function countSteps(record: ExecutionRecord): number {
 
 function countEventType(
   record: ExecutionRecord,
-  type: ObserverEvent['type'],
+  type: ObserverEvent['type']
 ): number {
   return record.events.reduce((acc, e) => (e.type === type ? acc + 1 : acc), 0);
 }
@@ -246,9 +246,7 @@ export function SectionHeader({
   return (
     <div className="hairline-b mb-4 flex items-baseline justify-between gap-4 pb-3">
       <div className="flex items-baseline gap-4">
-        {eyebrow ? (
-          <span className="num caps text-mute">{eyebrow}</span>
-        ) : null}
+        {eyebrow ? <span className="num caps text-mute">{eyebrow}</span> : null}
         <h2 className="display text-fg-strong text-[28px] leading-none">
           {title}
         </h2>
@@ -274,16 +272,18 @@ function StatBlock({
     tone === 'signal'
       ? 'text-signal'
       : tone === 'coral'
-        ? 'text-coral'
-        : tone === 'amber'
-          ? 'text-amber'
-          : tone === 'mint'
-            ? 'text-mint'
-            : 'text-fg-strong';
+      ? 'text-coral'
+      : tone === 'amber'
+      ? 'text-amber'
+      : tone === 'mint'
+      ? 'text-mint'
+      : 'text-fg-strong';
   return (
     <div className="panel px-4 py-3">
       <div className="caps mb-2">{label}</div>
-      <div className={`num display-roman text-[26px] leading-none ${valueTone}`}>
+      <div
+        className={`num display-roman text-[26px] leading-none ${valueTone}`}
+      >
         {value}
       </div>
     </div>
@@ -295,12 +295,12 @@ function StatusChip({ status }: { status: ExecutionRecord['status'] }) {
     status === 'completed'
       ? 'chip chip-mint'
       : status === 'failed'
-        ? 'chip chip-coral'
-        : status === 'broken'
-          ? 'chip chip-violet'
-          : status === 'running'
-            ? 'chip chip-signal'
-            : 'chip';
+      ? 'chip chip-coral'
+      : status === 'broken'
+      ? 'chip chip-violet'
+      : status === 'running'
+      ? 'chip chip-signal'
+      : 'chip';
   return (
     <span className={cls}>
       <span
@@ -308,10 +308,10 @@ function StatusChip({ status }: { status: ExecutionRecord['status'] }) {
           status === 'completed'
             ? 'dot dot-mint'
             : status === 'failed'
-              ? 'dot dot-coral'
-              : status === 'broken'
-                ? 'dot dot-violet'
-                : 'dot dot-signal'
+            ? 'dot dot-coral'
+            : status === 'broken'
+            ? 'dot dot-violet'
+            : 'dot dot-signal'
         }
       />
       {status}
@@ -338,7 +338,9 @@ function EmptyState({
         {eyebrow}
       </div>
       <h1
-        className={`display mb-3 text-[56px] leading-none ${tone === 'error' ? 'text-coral' : 'text-fg-strong'}`}
+        className={`display mb-3 text-[56px] leading-none ${
+          tone === 'error' ? 'text-coral' : 'text-fg-strong'
+        }`}
       >
         {title}
       </h1>

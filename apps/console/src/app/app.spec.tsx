@@ -8,7 +8,7 @@ describe('App', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(screen.getByRole('link', { name: 'Prose Console' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'catalog' })).toBeTruthy();
@@ -19,7 +19,7 @@ describe('App', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(screen.getByText(/correlationId/i)).toBeTruthy();
   });

@@ -1,9 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type {
-  ExecutionSummary,
-  FlowAggregate,
-} from '@celom/prose-observer';
+import type { ExecutionSummary, FlowAggregate } from '@celom/prose-observer';
 
 import { CatalogContent } from '../Catalog';
 
@@ -84,7 +81,7 @@ describe('CatalogContent', () => {
     render(
       <MemoryRouter>
         <CatalogContent flows={flows} executions={executions} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(screen.getByTestId('flow-row-order.create')).toBeTruthy();
     expect(screen.getByTestId('flow-row-user.signup')).toBeTruthy();
@@ -100,7 +97,7 @@ describe('CatalogContent', () => {
     render(
       <MemoryRouter>
         <CatalogContent flows={flows} executions={executions} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(screen.getByTestId('per-step-table')).toBeTruthy();
     expect(screen.getByTestId('step-row-validate')).toBeTruthy();
@@ -112,7 +109,7 @@ describe('CatalogContent', () => {
     render(
       <MemoryRouter>
         <CatalogContent flows={flows} executions={executions} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     fireEvent.click(screen.getByTestId('flow-row-user.signup'));
     expect(screen.getByTestId('step-row-persist')).toBeTruthy();
@@ -123,7 +120,7 @@ describe('CatalogContent', () => {
     render(
       <MemoryRouter>
         <CatalogContent flows={flows} executions={executions} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     const recent = screen.getByTestId('recent-executions');
     // order.create starts as the selection — its two executions appear.
@@ -140,7 +137,7 @@ describe('CatalogContent', () => {
     render(
       <MemoryRouter>
         <CatalogContent flows={[]} executions={[]} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(screen.getByText(/No executions have run yet/i)).toBeTruthy();
   });

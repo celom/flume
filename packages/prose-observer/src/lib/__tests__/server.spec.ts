@@ -97,7 +97,7 @@ describe('startServer — HTTP', () => {
         port: 0,
         host: '0.0.0.0',
         eventStream: observer.events,
-      }),
+      })
     ).rejects.toThrow(/non-loopback host/);
   });
 });
@@ -189,7 +189,7 @@ describe('startServer — backpressure', () => {
       (m): m is { type: 'dropped'; count: number } =>
         typeof m === 'object' &&
         m !== null &&
-        (m as { type?: unknown }).type === 'dropped',
+        (m as { type?: unknown }).type === 'dropped'
     );
     expect(droppedHeartbeat).toBeDefined();
     expect(droppedHeartbeat!.count).toBeGreaterThan(0);
@@ -199,7 +199,7 @@ describe('startServer — backpressure', () => {
       (m) =>
         typeof m === 'object' &&
         m !== null &&
-        (m as { type?: unknown }).type === 'step.start',
+        (m as { type?: unknown }).type === 'step.start'
     ).length;
     expect(stepStartCount + droppedHeartbeat!.count).toBe(TOTAL);
   });

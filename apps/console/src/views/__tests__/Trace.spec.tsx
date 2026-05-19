@@ -1,8 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type {
-  ExecutionRecord,
-  ObserverEvent,
-} from '@celom/prose-observer';
+import type { ExecutionRecord, ObserverEvent } from '@celom/prose-observer';
 
 import { TraceContent } from '../Trace';
 
@@ -160,13 +157,13 @@ describe('TraceContent', () => {
   it('tags skipped, broken, and complete rows with the right data-status', () => {
     render(<TraceContent record={fixtureRecord()} />);
     expect(
-      screen.getByTestId('gantt-row-gift-wrap').getAttribute('data-status'),
+      screen.getByTestId('gantt-row-gift-wrap').getAttribute('data-status')
     ).toBe('skipped');
     expect(
-      screen.getByTestId('gantt-row-guard').getAttribute('data-status'),
+      screen.getByTestId('gantt-row-guard').getAttribute('data-status')
     ).toBe('broken');
     expect(
-      screen.getByTestId('gantt-row-validate').getAttribute('data-status'),
+      screen.getByTestId('gantt-row-validate').getAttribute('data-status')
     ).toBe('complete');
   });
 
@@ -178,9 +175,7 @@ describe('TraceContent', () => {
 
   it('selecting a row reveals its result + state diff in the inspector', () => {
     render(<TraceContent record={fixtureRecord()} />);
-    expect(
-      screen.getByText(/Select a step row above/i),
-    ).toBeTruthy();
+    expect(screen.getByText(/Select a step row above/i)).toBeTruthy();
     fireEvent.click(screen.getByTestId('gantt-row-charge'));
     // After selection: result panel mentions `charged: true` and diff is visible.
     expect(screen.getAllByText(/charged/).length).toBeGreaterThan(0);

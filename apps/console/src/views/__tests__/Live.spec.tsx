@@ -24,7 +24,7 @@ function makeStream() {
 
 const event = (
   type: ObserverEvent['type'],
-  overrides: Partial<ObserverEvent> = {},
+  overrides: Partial<ObserverEvent> = {}
 ): ObserverEvent => {
   const base = {
     correlationId: 'cid',
@@ -69,7 +69,7 @@ describe('LiveView', () => {
     render(
       <MemoryRouter>
         <LiveView subscribe={stream.subscribe} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
 
     stream.fire(event('flow.start', { correlationId: 'a' }));
@@ -89,7 +89,7 @@ describe('LiveView', () => {
     render(
       <MemoryRouter>
         <LiveView subscribe={stream.subscribe} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
 
     stream.fire(event('flow.start', { correlationId: 'a' }));
@@ -99,7 +99,9 @@ describe('LiveView', () => {
     expect(screen.getAllByTestId('live-row')).toHaveLength(1);
 
     fireEvent.click(screen.getByTestId('pause-toggle')); // resume
-    stream.fire(event('flow.complete', { correlationId: 'a' }) as StreamMessage);
+    stream.fire(
+      event('flow.complete', { correlationId: 'a' }) as StreamMessage
+    );
     expect(screen.getAllByTestId('live-row')).toHaveLength(2);
   });
 
@@ -108,7 +110,7 @@ describe('LiveView', () => {
     render(
       <MemoryRouter>
         <LiveView subscribe={stream.subscribe} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     stream.fire({ type: 'dropped', count: 7 });
     const row = screen.getByTestId('live-row');
@@ -132,12 +134,12 @@ describe('LiveView', () => {
           />
           <Route path="/" element={<LocationProbe />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     stream.fire(event('flow.start', { correlationId: 'cid-abc' }));
     fireEvent.click(screen.getByTestId('live-row'));
     expect(screen.getByTestId('loc').textContent).toBe(
-      '/?correlationId=cid-abc',
+      '/?correlationId=cid-abc'
     );
   });
 
@@ -146,7 +148,7 @@ describe('LiveView', () => {
     const { unmount } = render(
       <MemoryRouter>
         <LiveView subscribe={stream.subscribe} />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(stream.isClosed()).toBe(false);
     unmount();

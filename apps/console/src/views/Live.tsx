@@ -5,9 +5,7 @@ import { connectStream, type StreamMessage } from '../api';
 
 const MAX_ROWS = 500;
 
-export type Subscribe = (
-  onEvent: (event: StreamMessage) => void,
-) => () => void;
+export type Subscribe = (onEvent: (event: StreamMessage) => void) => () => void;
 
 export interface LiveViewProps {
   /** Override the WS subscription for tests. Defaults to `connectStream` from the api. */
@@ -75,10 +73,7 @@ export function LiveView({ subscribe = connectStream }: LiveViewProps) {
             value={paused ? 'paused' : 'streaming'}
             tone={paused ? 'amber' : 'mint'}
           />
-          <CountBlock
-            label="Scroll"
-            value={autoScroll ? 'follow' : 'free'}
-          />
+          <CountBlock label="Scroll" value={autoScroll ? 'follow' : 'free'} />
         </div>
       </section>
 
@@ -116,14 +111,14 @@ export function LiveView({ subscribe = connectStream }: LiveViewProps) {
             >
               <span
                 className={`absolute h-3 w-3 rounded-full transition-all ${
-                  autoScroll
-                    ? 'left-[14px] bg-signal'
-                    : 'left-[2px] bg-mute-2'
+                  autoScroll ? 'left-[14px] bg-signal' : 'left-[2px] bg-mute-2'
                 }`}
               />
             </span>
             <span
-              className={`caps transition-colors ${autoScroll ? 'text-fg' : 'text-mute-2'}`}
+              className={`caps transition-colors ${
+                autoScroll ? 'text-fg' : 'text-mute-2'
+              }`}
             >
               auto-scroll
             </span>
@@ -170,7 +165,9 @@ export function LiveView({ subscribe = connectStream }: LiveViewProps) {
                   onClick={() => onRowClick(row, navigate)}
                   data-testid="live-row"
                   data-type={row.type}
-                  className={`group hairline-b last:border-b-0 grid cursor-pointer grid-cols-[14px_92px_140px_1fr_84px] items-center gap-3 px-3 py-1.5 transition-colors ${rowHoverClass(row)}`}
+                  className={`group hairline-b last:border-b-0 grid cursor-pointer grid-cols-[14px_92px_140px_1fr_84px] items-center gap-3 px-3 py-1.5 transition-colors ${rowHoverClass(
+                    row
+                  )}`}
                 >
                   <LiveRow event={row} />
                 </li>
@@ -186,7 +183,7 @@ export function LiveView({ subscribe = connectStream }: LiveViewProps) {
 
 function onRowClick(
   row: StreamMessage,
-  navigate: ReturnType<typeof useNavigate>,
+  navigate: ReturnType<typeof useNavigate>
 ): void {
   if (row.type === 'dropped') return;
   navigate(`/?correlationId=${encodeURIComponent(row.correlationId)}`);
@@ -212,8 +209,7 @@ function LiveRow({ event }: { event: StreamMessage }) {
       </>
     );
   }
-  const detail =
-    'stepName' in event && event.stepName ? event.stepName : null;
+  const detail = 'stepName' in event && event.stepName ? event.stepName : null;
   const time = new Date(event.ts).toISOString().slice(11, 23);
   const tone = toneFor(event.type);
   return (
@@ -302,17 +298,19 @@ function CountBlock({
     tone === 'signal'
       ? 'text-signal'
       : tone === 'coral'
-        ? 'text-coral'
-        : tone === 'amber'
-          ? 'text-amber'
-          : tone === 'mint'
-            ? 'text-mint'
-            : 'text-fg-strong';
+      ? 'text-coral'
+      : tone === 'amber'
+      ? 'text-amber'
+      : tone === 'mint'
+      ? 'text-mint'
+      : 'text-fg-strong';
   return (
     <div className="panel px-4 py-3">
       <div className="caps mb-2">{label}</div>
       <div className="flex items-baseline gap-2">
-        <span className={`num display-roman text-[22px] leading-none ${valueTone}`}>
+        <span
+          className={`num display-roman text-[22px] leading-none ${valueTone}`}
+        >
           {value}
         </span>
         {note ? (

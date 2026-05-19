@@ -38,7 +38,7 @@ const flow = createFlow<{ userId: string }, never>('demo')
 await flow.execute(
   { userId: 'u1' },
   {},
-  { observer, correlationId: crypto.randomUUID() },
+  { observer, correlationId: crypto.randomUUID() }
 );
 ```
 

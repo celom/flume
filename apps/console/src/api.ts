@@ -9,9 +9,7 @@ import type {
  * WS `/stream` payloads: every `ObserverEvent` plus the backpressure
  * heartbeat the server emits when it drops oldest queued entries.
  */
-export type StreamMessage =
-  | ObserverEvent
-  | { type: 'dropped'; count: number };
+export type StreamMessage = ObserverEvent | { type: 'dropped'; count: number };
 
 export async function listExecutions(): Promise<ExecutionSummary[]> {
   const res = await fetch('/api/executions');
@@ -20,10 +18,10 @@ export async function listExecutions(): Promise<ExecutionSummary[]> {
 }
 
 export async function fetchExecution(
-  correlationId: string,
+  correlationId: string
 ): Promise<ExecutionRecord | null> {
   const res = await fetch(
-    `/api/executions/${encodeURIComponent(correlationId)}`,
+    `/api/executions/${encodeURIComponent(correlationId)}`
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`fetchExecution failed: ${res.status}`);
@@ -46,7 +44,7 @@ export async function listFlows(): Promise<FlowAggregate[]> {
  */
 export function connectStream(
   onEvent: (event: StreamMessage) => void,
-  onError?: (err: Event) => void,
+  onError?: (err: Event) => void
 ): () => void {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${proto}//${window.location.host}/stream`);

@@ -42,7 +42,7 @@ const flow = createFlow<Input, Deps>('demo.order.create')
     'notify',
     'shallow',
     () => ({ emailQueued: true }),
-    () => ({ smsQueued: true }),
+    () => ({ smsQueued: true })
   )
   .step('persist', () => ({ persisted: true }))
   .build();
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
       await flow.execute(
         { userId, authorization: `Bearer ${randomUUID()}` },
         {},
-        { observer, correlationId: randomUUID() },
+        { observer, correlationId: randomUUID() }
       );
     } catch {
       // Flow errors are surfaced via flow.error events; swallow here so the

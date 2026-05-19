@@ -10,10 +10,7 @@ import type { StateDiff } from './events.js';
  * Nested object changes register as a single `changed` entry with the full
  * before/after subtree — the caller is responsible for any deeper diffing.
  */
-export function shallowStateDiff(
-  before: unknown,
-  after: unknown,
-): StateDiff {
+export function shallowStateDiff(before: unknown, after: unknown): StateDiff {
   const beforeObj = toRecord(before);
   const afterObj = toRecord(after);
 
