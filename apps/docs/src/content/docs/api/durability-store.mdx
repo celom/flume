@@ -21,11 +21,11 @@ interface DurabilityStore {
 }
 ```
 
-| Method | Semantics |
-|--------|-----------|
-| `load(runId)` | Return the checkpoint for `runId`, or `null` if none exists. Must not throw on unknown ids. |
+| Method             | Semantics                                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `load(runId)`      | Return the checkpoint for `runId`, or `null` if none exists. Must not throw on unknown ids.                                        |
 | `save(checkpoint)` | Persist the checkpoint, overwriting any existing entry for the same `runId`. Must be atomic — partial writes defeat checkpointing. |
-| `delete(runId)` | Remove the checkpoint. No-op for an unknown `runId` — must not throw. |
+| `delete(runId)`    | Remove the checkpoint. No-op for an unknown `runId` — must not throw.                                                              |
 
 Implementations are responsible for serialization. JSON is the typical choice; whatever you pick must round-trip `Date` objects (`createdAt`, `updatedAt`) and support `undefined` for `breakValue` slots that are absent.
 
@@ -48,18 +48,18 @@ interface FlowCheckpoint {
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `flowName` | The flow's name (from `createFlow('name')`). Useful for diagnostics; not used to route resume. |
-| `runId` | The `DurabilityOptions.runId` of this run. |
-| `input` | The argument the flow was first started with. Used verbatim on resume — the caller's second `input` argument is ignored. |
-| `state` | Accumulated state at the moment of the last successful step. |
-| `completedSteps` | Names of finished or condition-skipped steps, in execution order. |
-| `status` | `'running'` (in progress or crashed), `'completed'` (saved result is final), `'failed'` (errored after exhausting retries). |
-| `breakValue` | Only present when the flow short-circuited via `breakIf`. The field's _presence_ distinguishes "broke" from "completed normally" — the value itself may be `undefined`. |
-| `failedStep` | Only present when `status === 'failed'`. The step that errored, plus its error message. |
-| `createdAt` | When the run first started. Preserved across resumes. |
-| `updatedAt` | When the checkpoint was last written. |
+| Field            | Description                                                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flowName`       | The flow's name (from `createFlow('name')`). Useful for diagnostics; not used to route resume.                                                                          |
+| `runId`          | The `DurabilityOptions.runId` of this run.                                                                                                                              |
+| `input`          | The argument the flow was first started with. Used verbatim on resume — the caller's second `input` argument is ignored.                                                |
+| `state`          | Accumulated state at the moment of the last successful step.                                                                                                            |
+| `completedSteps` | Names of finished or condition-skipped steps, in execution order.                                                                                                       |
+| `status`         | `'running'` (in progress or crashed), `'completed'` (saved result is final), `'failed'` (errored after exhausting retries).                                             |
+| `breakValue`     | Only present when the flow short-circuited via `breakIf`. The field's _presence_ distinguishes "broke" from "completed normally" — the value itself may be `undefined`. |
+| `failedStep`     | Only present when `status === 'failed'`. The step that errored, plus its error message.                                                                                 |
+| `createdAt`      | When the run first started. Preserved across resumes.                                                                                                                   |
+| `updatedAt`      | When the checkpoint was last written.                                                                                                                                   |
 
 ## `DurabilityOptions`
 
@@ -72,9 +72,9 @@ interface DurabilityOptions {
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `store` | The store to read and write checkpoints through. |
+| Field   | Description                                                                                                                                                      |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `store` | The store to read and write checkpoints through.                                                                                                                 |
 | `runId` | Stable identifier for this run. Same `runId` across `execute()` calls → resume or replay. New `runId` → fresh run. Typically derived from a business identifier. |
 
 ## `MemoryDurabilityStore`
@@ -88,16 +88,18 @@ const store = new MemoryDurabilityStore();
 ```
 
 <Aside type="caution">
-  Intended for tests, local development, and as a reference implementation. State is held in memory only — it does **not** survive a process exit. Use a persistent adapter in production.
+  Intended for tests, local development, and as a reference implementation.
+  State is held in memory only — it does **not** survive a process exit. Use a
+  persistent adapter in production.
 </Aside>
 
 Test helpers (not part of the `DurabilityStore` interface):
 
-| Method | Purpose |
-|--------|---------|
-| `size()` | Number of stored runs. |
+| Method            | Purpose                                                    |
+| ----------------- | ---------------------------------------------------------- |
+| `size()`          | Number of stored runs.                                     |
 | `snapshot(runId)` | Synchronous read of a single checkpoint (returns a clone). |
-| `clear()` | Drop all stored checkpoints. |
+| `clear()`         | Drop all stored checkpoints.                               |
 
 `MemoryDurabilityStore` clones on both `load()` and `save()` so the executor cannot mutate stored state. Adapters that serialize to bytes get this property for free.
 

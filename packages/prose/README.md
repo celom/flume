@@ -80,23 +80,23 @@ The generic parameter defines the input shape. TypeScript infers the state type 
 
 ```typescript
 const result = await flow.execute(
-  { orderId: 'ord_123' },    // input
-  { db, eventPublisher },     // dependencies
-  { timeout: 30_000 }         // options (optional)
+  { orderId: 'ord_123' }, // input
+  { db, eventPublisher }, // dependencies
+  { timeout: 30_000 } // options (optional)
 );
 ```
 
 **Execution options:**
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `timeout` | `number` | Max duration for the entire flow (ms) |
-| `stepTimeout` | `number` | Default max duration per step (ms) |
-| `signal` | `AbortSignal` | External signal for cancellation |
-| `observer` | `FlowObserver` | Lifecycle hooks for logging/metrics |
-| `throwOnError` | `boolean` | `false` returns partial state instead of throwing |
-| `correlationId` | `string` | Custom ID propagated to events and observers |
-| `errorHandling` | `object` | Control behavior for missing deps (see below) |
+| Option          | Type           | Description                                       |
+| --------------- | -------------- | ------------------------------------------------- |
+| `timeout`       | `number`       | Max duration for the entire flow (ms)             |
+| `stepTimeout`   | `number`       | Default max duration per step (ms)                |
+| `signal`        | `AbortSignal`  | External signal for cancellation                  |
+| `observer`      | `FlowObserver` | Lifecycle hooks for logging/metrics               |
+| `throwOnError`  | `boolean`      | `false` returns partial state instead of throwing |
+| `correlationId` | `string`       | Custom ID propagated to events and observers      |
+| `errorHandling` | `object`       | Control behavior for missing deps (see below)     |
 
 ### Validation
 
@@ -137,17 +137,17 @@ flow
     maxDelayMs: 5_000,
     shouldRetry: (err) => err.status !== 400,
     stepTimeout: 10_000, // override the flow-level stepTimeout for this step
-  })
+  });
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `maxAttempts` | `number` | — | Total attempts (including the first) |
-| `delayMs` | `number` | — | Initial delay between retries |
-| `backoffMultiplier` | `number` | `1` | Multiplier applied to delay after each retry |
-| `maxDelayMs` | `number` | `Infinity` | Upper bound on delay |
-| `shouldRetry` | `(error) => boolean` | — | Predicate to conditionally retry |
-| `stepTimeout` | `number` | — | Timeout override for this step |
+| Option              | Type                 | Default    | Description                                  |
+| ------------------- | -------------------- | ---------- | -------------------------------------------- |
+| `maxAttempts`       | `number`             | —          | Total attempts (including the first)         |
+| `delayMs`           | `number`             | —          | Initial delay between retries                |
+| `backoffMultiplier` | `number`             | `1`        | Multiplier applied to delay after each retry |
+| `maxDelayMs`        | `number`             | `Infinity` | Upper bound on delay                         |
+| `shouldRetry`       | `(error) => boolean` | —          | Predicate to conditionally retry             |
+| `stepTimeout`       | `number`             | —          | Timeout override for this step               |
 
 ### Timeouts & cancellation
 
@@ -155,8 +155,8 @@ flow
 const controller = new AbortController();
 
 const result = await flow.execute(input, deps, {
-  timeout: 30_000,       // abort if the flow exceeds 30s
-  stepTimeout: 5_000,    // abort any step that exceeds 5s
+  timeout: 30_000, // abort if the flow exceeds 30s
+  stepTimeout: 5_000, // abort any step that exceeds 5s
   signal: controller.signal, // cancel from outside
 });
 
@@ -182,12 +182,20 @@ flow
   .step('checkCache', (ctx) => {
     return { cached: cache.has(ctx.input.key) };
   })
-  .stepIf('fromCache', (ctx) => ctx.state.cached, (ctx) => {
-    return { value: cache.get(ctx.input.key) };
-  })
-  .stepIf('fromDb', (ctx) => !ctx.state.cached, async (ctx) => {
-    return { value: await db.get(ctx.input.key) };
-  })
+  .stepIf(
+    'fromCache',
+    (ctx) => ctx.state.cached,
+    (ctx) => {
+      return { value: cache.get(ctx.input.key) };
+    }
+  )
+  .stepIf(
+    'fromDb',
+    (ctx) => !ctx.state.cached,
+    async (ctx) => {
+      return { value: await db.get(ctx.input.key) };
+    }
+  );
 ```
 
 ### Early exit with breakIf
@@ -264,20 +272,22 @@ interface FlowEventPublisher {
 Run independent handlers concurrently and merge results into state.
 
 ```typescript
-flow.parallel('fetchAll', 'deep',
+flow.parallel(
+  'fetchAll',
+  'deep',
   async (ctx) => ({ users: await fetchUsers() }),
-  async (ctx) => ({ posts: await fetchPosts() }),
+  async (ctx) => ({ posts: await fetchPosts() })
 );
 // ctx.state now has both `users` and `posts`
 ```
 
 **Merge strategies:**
 
-| Strategy | Behavior |
-|----------|----------|
-| `'shallow'` | `Object.assign()` — later results override earlier ones |
-| `'error-on-conflict'` | Throws if any keys overlap between results |
-| `'deep'` | Recursive merge; arrays are concatenated |
+| Strategy              | Behavior                                                |
+| --------------------- | ------------------------------------------------------- |
+| `'shallow'`           | `Object.assign()` — later results override earlier ones |
+| `'error-on-conflict'` | Throws if any keys overlap between results              |
+| `'deep'`              | Recursive merge; arrays are concatenated                |
 
 ### Output transformation
 
@@ -338,17 +348,17 @@ await flow.execute(input, deps, { observer });
 
 **Observer hooks:**
 
-| Hook | Called when |
-|------|------------|
-| `onFlowStart` | Flow begins |
-| `onFlowComplete` | Flow finishes successfully |
-| `onFlowError` | Flow fails |
-| `onFlowBreak` | Flow exits early via `breakIf` |
-| `onStepStart` | Step begins |
-| `onStepComplete` | Step finishes |
-| `onStepError` | Step fails (after exhausting retries) |
-| `onStepRetry` | Step is about to be retried |
-| `onStepSkipped` | Conditional step is skipped |
+| Hook             | Called when                           |
+| ---------------- | ------------------------------------- |
+| `onFlowStart`    | Flow begins                           |
+| `onFlowComplete` | Flow finishes successfully            |
+| `onFlowError`    | Flow fails                            |
+| `onFlowBreak`    | Flow exits early via `breakIf`        |
+| `onStepStart`    | Step begins                           |
+| `onStepComplete` | Step finishes                         |
+| `onStepError`    | Step fails (after exhausting retries) |
+| `onStepRetry`    | Step is about to be retried           |
+| `onStepSkipped`  | Conditional step is skipped           |
 
 All hooks are optional — implement only what you need:
 
@@ -368,7 +378,11 @@ await flow.execute(input, deps, {
 By default, step errors are wrapped in `FlowExecutionError` and thrown.
 
 ```typescript
-import { FlowExecutionError, ValidationError, TimeoutError } from '@celom/prose';
+import {
+  FlowExecutionError,
+  ValidationError,
+  TimeoutError,
+} from '@celom/prose';
 
 try {
   await flow.execute(input, deps);
@@ -394,8 +408,8 @@ Control behavior when optional dependencies are missing:
 ```typescript
 await flow.execute(input, deps, {
   errorHandling: {
-    throwOnMissingDatabase: false,        // warn instead of throwing
-    throwOnMissingEventPublisher: false,   // warn instead of throwing
+    throwOnMissingDatabase: false, // warn instead of throwing
+    throwOnMissingEventPublisher: false, // warn instead of throwing
   },
 });
 ```
@@ -406,13 +420,13 @@ Every step handler receives `ctx.meta` with runtime metadata:
 
 ```typescript
 flow.step('example', (ctx) => {
-  ctx.meta.flowName;       // 'process-order'
-  ctx.meta.currentStep;    // 'example'
-  ctx.meta.startedAt;      // Date
-  ctx.meta.correlationId;  // auto-generated or custom
-  ctx.meta.runId;          // present only when durability is configured
+  ctx.meta.flowName; // 'process-order'
+  ctx.meta.currentStep; // 'example'
+  ctx.meta.startedAt; // Date
+  ctx.meta.correlationId; // auto-generated or custom
+  ctx.meta.runId; // present only when durability is configured
   ctx.meta.idempotencyKey; // `${runId}:${stepName}` — pass to external APIs
-  ctx.meta.isResuming;     // true when this execution loaded a saved checkpoint
+  ctx.meta.isResuming; // true when this execution loaded a saved checkpoint
 });
 ```
 
@@ -434,28 +448,39 @@ const processOrder = createFlow<{ orderId: string }>('process-order')
     return { receipt };
   })
   .step('persistOrder', async (ctx) => {
-    await db.orders.upsert({ id: ctx.input.orderId, receiptId: ctx.state.receipt.id });
+    await db.orders.upsert({
+      id: ctx.input.orderId,
+      receiptId: ctx.state.receipt.id,
+    });
   })
   .build();
 
 // First call — crashes after chargePayment, before persistOrder
-await processOrder.execute({ orderId: 'ord_42' }, { db, payments }, {
-  durability: { store, runId: 'ord_42' },
-});
+await processOrder.execute(
+  { orderId: 'ord_42' },
+  { db, payments },
+  {
+    durability: { store, runId: 'ord_42' },
+  }
+);
 
 // After restart — chargePayment is skipped, persistOrder runs
-await processOrder.execute({ orderId: 'ord_42' }, { db, payments }, {
-  durability: { store, runId: 'ord_42' },
-});
+await processOrder.execute(
+  { orderId: 'ord_42' },
+  { db, payments },
+  {
+    durability: { store, runId: 'ord_42' },
+  }
+);
 ```
 
 The three behaviors of `execute()` with a `durability` option:
 
-| Stored status | Behavior |
-|---------------|----------|
-| _no checkpoint_ | Fresh run — every step executes |
+| Stored status        | Behavior                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| _no checkpoint_      | Fresh run — every step executes                                                                     |
 | `running` / `failed` | Resume — completed steps are skipped, state is loaded, execution continues at the first undone step |
-| `completed` | Replay — the saved result is returned without invoking any handler |
+| `completed`          | Replay — the saved result is returned without invoking any handler                                  |
 
 A step may run twice across a crash. `ctx.meta.idempotencyKey` is a stable per-step key (`${runId}:${stepName}`) — pass it to Stripe, SQS, or any external API that supports idempotency.
 

@@ -26,10 +26,10 @@ ValidationError.multiple(issues: ValidationIssue[]): ValidationError
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `message` | `string` | Error message |
-| `issues` | `ValidationIssue[]` | Array of `{ field, message }` objects |
+| Property  | Type                | Description                           |
+| --------- | ------------------- | ------------------------------------- |
+| `message` | `string`            | Error message                         |
+| `issues`  | `ValidationIssue[]` | Array of `{ field, message }` objects |
 
 ### Methods
 
@@ -60,11 +60,11 @@ new FlowExecutionError(flowName: string, stepName: string, originalError: Error)
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `flowName` | `string` | Name of the flow |
-| `stepName` | `string` | Name of the step that failed |
-| `originalError` | `Error` | The actual error thrown by the step |
+| Property        | Type     | Description                         |
+| --------------- | -------- | ----------------------------------- |
+| `flowName`      | `string` | Name of the flow                    |
+| `stepName`      | `string` | Name of the step that failed        |
+| `originalError` | `Error`  | The actual error thrown by the step |
 
 ## `TimeoutError`
 
@@ -72,8 +72,8 @@ Thrown when a flow or step exceeds its configured timeout.
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `flowName` | `string` | Name of the flow |
-| `stepName` | `string \| undefined` | Step name (undefined for flow-level timeout) |
-| `timeoutMs` | `number` | The timeout value that was exceeded |
+| Property    | Type                  | Description                                  |
+| ----------- | --------------------- | -------------------------------------------- |
+| `flowName`  | `string`              | Name of the flow                             |
+| `stepName`  | `string \| undefined` | Step name (undefined for flow-level timeout) |
+| `timeoutMs` | `number`              | The timeout value that was exceeded          |

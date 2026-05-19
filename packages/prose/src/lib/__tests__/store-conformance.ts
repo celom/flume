@@ -30,7 +30,7 @@ function fixture(overrides: Partial<FlowCheckpoint> = {}): FlowCheckpoint {
 
 export function storeConformanceSuite(
   name: string,
-  makeStore: () => DurabilityStore,
+  makeStore: () => DurabilityStore
 ): void {
   describe(`DurabilityStore conformance: ${name}`, () => {
     let store: DurabilityStore;
@@ -60,7 +60,7 @@ export function storeConformanceSuite(
     it('save() overwrites an existing entry for the same runId', async () => {
       await store.save(fixture({ runId: 'r1', status: 'running' }));
       await store.save(
-        fixture({ runId: 'r1', status: 'completed', state: { final: true } }),
+        fixture({ runId: 'r1', status: 'completed', state: { final: true } })
       );
 
       const loaded = await store.load('r1');
@@ -74,7 +74,7 @@ export function storeConformanceSuite(
           runId: 'r1',
           status: 'failed',
           failedStep: { name: 'chargePayment', error: 'declined' },
-        }),
+        })
       );
 
       const loaded = await store.load('r1');
@@ -92,14 +92,14 @@ export function storeConformanceSuite(
         fixture({
           runId: 'normal',
           status: 'completed',
-        }),
+        })
       );
       await store.save(
         fixture({
           runId: 'broke-with-value',
           status: 'completed',
           breakValue: { broken: true },
-        }),
+        })
       );
 
       const normal = await store.load('normal');

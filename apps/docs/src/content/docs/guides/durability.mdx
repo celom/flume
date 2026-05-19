@@ -23,31 +23,42 @@ const processOrder = createFlow<{ orderId: string }>('process-order')
     return { receipt };
   })
   .step('persistOrder', async (ctx) => {
-    await db.orders.insert({ id: ctx.input.orderId, receiptId: ctx.state.receipt.id });
+    await db.orders.insert({
+      id: ctx.input.orderId,
+      receiptId: ctx.state.receipt.id,
+    });
   })
   .build();
 
 // First call — process dies after chargePayment, before persistOrder
-await processOrder.execute({ orderId: 'ord_42' }, { db }, {
-  durability: { store, runId: 'ord_42' },
-});
+await processOrder.execute(
+  { orderId: 'ord_42' },
+  { db },
+  {
+    durability: { store, runId: 'ord_42' },
+  }
+);
 
 // Second call (after restart) with same runId — chargePayment is skipped,
 // persistOrder runs to completion.
-await processOrder.execute({ orderId: 'ord_42' }, { db }, {
-  durability: { store, runId: 'ord_42' },
-});
+await processOrder.execute(
+  { orderId: 'ord_42' },
+  { db },
+  {
+    durability: { store, runId: 'ord_42' },
+  }
+);
 ```
 
 ## How it works
 
 After each successful step, Prose writes a checkpoint containing the original input, accumulated state, and the names of completed steps. On entry, `execute()` loads any existing checkpoint and behaves according to its status:
 
-| Stored status | `execute()` behavior |
-|---------------|---------------------|
-| _no checkpoint_ | Fresh run — every step executes. |
+| Stored status         | `execute()` behavior                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| _no checkpoint_       | Fresh run — every step executes.                                                                                         |
 | `running` or `failed` | Resume — completed steps are skipped, state is loaded from the checkpoint, execution continues at the first undone step. |
-| `completed` | Replay — the saved result is returned without invoking any handler. |
+| `completed`           | Replay — the saved result is returned without invoking any handler.                                                      |
 
 Checkpoints are persisted before observer notifications fire, so a crash in observer code can't lose the completion record.
 
@@ -55,13 +66,15 @@ Checkpoints are persisted before observer notifications fire, so a crash in obse
 
 ### Choose a store
 
-| Store | Use case |
-|-------|----------|
-| `MemoryDurabilityStore` | Built-in. Tests, local dev, single-process scripts. **Not production** — state is lost when the process exits. |
-| Custom adapter | Implement [`DurabilityStore`](/prose/api/durability-store/) over your own persistence layer (SQLite, Postgres, Redis, S3). |
+| Store                   | Use case                                                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `MemoryDurabilityStore` | Built-in. Tests, local dev, single-process scripts. **Not production** — state is lost when the process exits.             |
+| Custom adapter          | Implement [`DurabilityStore`](/prose/api/durability-store/) over your own persistence layer (SQLite, Postgres, Redis, S3). |
 
 <Aside type="caution">
-  `MemoryDurabilityStore` is a reference implementation. It survives nothing — the moment the process exits, every checkpoint is gone. Use it in tests; reach for a persistent adapter in production.
+  `MemoryDurabilityStore` is a reference implementation. It survives nothing —
+  the moment the process exits, every checkpoint is gone. Use it in tests; reach
+  for a persistent adapter in production.
 </Aside>
 
 Dedicated `@celom/prose-store-sqlite` and `@celom/prose-store-postgres` packages are on the roadmap. Until then, implement the three-method `DurabilityStore` interface yourself — see [Writing a custom store](#writing-a-custom-store).
@@ -98,7 +111,8 @@ When durability is configured, Prose exposes `ctx.meta.idempotencyKey` — a sta
 For databases: use upserts keyed by `${runId}:${stepName}` or by a business identifier the handler can derive deterministically. For queues: send with a deduplication ID. For things you can't deduplicate (sending email, calling a webhook that has no idempotency support), accept that at-least-once is the contract you're working with — or move that side effect into an outbox table that a separate worker drains.
 
 <Aside type="caution">
-  `MemoryDurabilityStore` survives nothing. The idempotency contract above is what keeps a real adapter safe across crashes.
+  `MemoryDurabilityStore` survives nothing. The idempotency contract above is
+  what keeps a real adapter safe across crashes.
 </Aside>
 
 ## Resuming a failed run
@@ -138,15 +152,15 @@ What does **not** get persisted:
 
 ## Interaction with other features
 
-| Feature | Behavior under durability |
-|---------|--------------------------|
-| `.parallel(...)` | Atomic checkpoint — all handlers in the block re-run if any one fails. The parallel block as a whole is what's marked complete, not the individual handlers. |
-| `.withRetry(...)` | Retries happen within the step. The checkpoint is written once, after retries succeed. |
-| `.breakIf(...)` | The break value is persisted in the checkpoint. Replay returns it without invoking any handler. |
-| `.stepIf(...)` / `.step({ condition })` | The decision to skip is recorded. Resume does not re-evaluate the condition. |
-| `.transaction(...)` | The transaction runs again if it failed before the checkpoint write. Database-level idempotency (upsert, unique constraints) is your responsibility. |
-| `.event(...)` | At-least-once: an event may be re-published if the crash falls between `publisher.publish()` and the checkpoint write. Consumers must be idempotent. |
-| `.validate(...)` | Re-runs on resume only if it threw on the previous attempt. Successful validations are recorded as completed. |
+| Feature                                 | Behavior under durability                                                                                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.parallel(...)`                        | Atomic checkpoint — all handlers in the block re-run if any one fails. The parallel block as a whole is what's marked complete, not the individual handlers. |
+| `.withRetry(...)`                       | Retries happen within the step. The checkpoint is written once, after retries succeed.                                                                       |
+| `.breakIf(...)`                         | The break value is persisted in the checkpoint. Replay returns it without invoking any handler.                                                              |
+| `.stepIf(...)` / `.step({ condition })` | The decision to skip is recorded. Resume does not re-evaluate the condition.                                                                                 |
+| `.transaction(...)`                     | The transaction runs again if it failed before the checkpoint write. Database-level idempotency (upsert, unique constraints) is your responsibility.         |
+| `.event(...)`                           | At-least-once: an event may be re-published if the crash falls between `publisher.publish()` and the checkpoint write. Consumers must be idempotent.         |
+| `.validate(...)`                        | Re-runs on resume only if it threw on the previous attempt. Successful validations are recorded as completed.                                                |
 
 ## What this isn't
 
@@ -170,7 +184,7 @@ app.post('/orders/:id/process', async (req, res) => {
   const result = await processOrder.execute(
     { orderId: req.params.id },
     { db, payments, mailer },
-    { durability: { store, runId: req.params.id } },
+    { durability: { store, runId: req.params.id } }
   );
   res.json(result);
 });

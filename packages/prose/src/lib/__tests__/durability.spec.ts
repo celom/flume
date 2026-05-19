@@ -34,7 +34,7 @@ describe('Durability', () => {
       const result = await flow.execute(
         { x: 21 },
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
 
       expect(result).toEqual({ doubled: 42 });
@@ -51,11 +51,7 @@ describe('Durability', () => {
         })
         .build();
 
-      await flow.execute(
-        {},
-        {},
-        { durability: { store, runId: 'order-7' } },
-      );
+      await flow.execute({}, {}, { durability: { store, runId: 'order-7' } });
 
       expect(seenKeys).toEqual(['order-7:alpha', 'order-7:beta']);
     });
@@ -95,7 +91,7 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { durability: { store, runId: 'r1' } }),
+        flow.execute({}, {}, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow('boom');
 
       // First run: a ran once, b ran once and threw, c didn't run
@@ -106,7 +102,7 @@ describe('Durability', () => {
       const result = await flow.execute(
         {},
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
 
       // Resume: a was NOT re-run, b ran a second time and succeeded, c ran
@@ -133,7 +129,7 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { durability: { store, runId: 'r1' } }),
+        flow.execute({}, {}, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow();
       await flow.execute({}, {}, { durability: { store, runId: 'r1' } });
 
@@ -156,18 +152,14 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute(
-          { value: 100 },
-          {},
-          { durability: { store, runId: 'r1' } },
-        ),
+        flow.execute({ value: 100 }, {}, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow();
 
       // Resume with an intentionally different input — should be ignored
       await flow.execute(
         { value: 999 },
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
 
       expect(observedInput).toEqual({ value: 100 });
@@ -186,7 +178,7 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { durability: { store, runId: 'r1' } }),
+        flow.execute({}, {}, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow();
       const afterFailure = await store.load('r1');
       const originalCreatedAt = afterFailure?.createdAt;
@@ -208,7 +200,7 @@ describe('Durability', () => {
       const first = await flow.execute(
         {},
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
       expect(handler).toHaveBeenCalledTimes(1);
       expect(first).toEqual({ v: 1 });
@@ -216,7 +208,7 @@ describe('Durability', () => {
       const second = await flow.execute(
         {},
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
       expect(handler).toHaveBeenCalledTimes(1);
       expect(second).toEqual({ v: 1 });
@@ -232,7 +224,7 @@ describe('Durability', () => {
         .step('a', aHandler)
         .breakIf(
           (ctx) => ctx.state.shouldBreak === true,
-          () => ({ broken: true }),
+          () => ({ broken: true })
         )
         .step('c', cHandler)
         .build();
@@ -240,7 +232,7 @@ describe('Durability', () => {
       const first = await flow.execute(
         {},
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
       expect(first).toEqual({ broken: true });
       expect(cHandler).not.toHaveBeenCalled();
@@ -248,7 +240,7 @@ describe('Durability', () => {
       const second = await flow.execute(
         {},
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
       expect(second).toEqual({ broken: true });
       // Confirm replay short-circuits the entire execution, not just step c
@@ -272,13 +264,13 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { durability: { store, runId: 'r1' } }),
+        flow.execute({}, {}, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow();
 
       const result = await flow.execute(
         {},
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
       expect(result).toEqual({ shouldBreak: false, cRan: true });
       expect(cHandler).toHaveBeenCalledTimes(1);
@@ -290,7 +282,7 @@ describe('Durability', () => {
     it('does not re-evaluate a skipped condition on resume', async () => {
       const skippedHandler = vi.fn(() => ({ shouldNotMerge: true }));
       const conditionCheck = vi.fn(
-        (ctx: { state: { skip?: boolean } }) => ctx.state.skip !== true,
+        (ctx: { state: { skip?: boolean } }) => ctx.state.skip !== true
       );
       let firstAttempt = true;
       const flow = createFlow<unknown, EmptyDeps>('test')
@@ -306,7 +298,7 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { durability: { store, runId: 'r1' } }),
+        flow.execute({}, {}, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow();
 
       expect(conditionCheck).toHaveBeenCalledTimes(1);
@@ -363,17 +355,13 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute(
-          {},
-          { db },
-          { durability: { store, runId: 'r1' } },
-        ),
+        flow.execute({}, { db }, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow();
 
       const result = await flow.execute(
         {},
         { db },
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
 
       expect(txAttempts).toBe(2);
@@ -398,12 +386,12 @@ describe('Durability', () => {
       await flow.execute(
         {},
         { eventPublisher },
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
       await flow.execute(
         {},
         { eventPublisher },
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
 
       expect(published).toHaveLength(1);
@@ -427,7 +415,7 @@ describe('Durability', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { durability: { store, runId: 'r1' } }),
+        flow.execute({}, {}, { durability: { store, runId: 'r1' } })
       ).rejects.toThrow();
 
       expect(aCount).toHaveBeenCalledTimes(1);
@@ -437,7 +425,7 @@ describe('Durability', () => {
       const result = await flow.execute(
         {},
         {},
-        { durability: { store, runId: 'r1' } },
+        { durability: { store, runId: 'r1' } }
       );
 
       // Parallel is atomic: all three handlers re-run on resume, not just c

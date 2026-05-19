@@ -9,7 +9,7 @@ Prose is an **in-process** workflow orchestration library. It runs inside your e
 
 Prose ships opt-in [skip-ahead durability](/prose/guides/durability/) — successful steps are checkpointed, and re-invoking `execute()` with the same `runId` resumes from the next undone step or replays the saved result. That covers crash recovery for in-process flows without external infrastructure.
 
-It is **not** a substitute for [Temporal](https://temporal.io), [Inngest](https://www.inngest.com), or [Trigger.dev]( https://trigger.dev). Specifically, Prose does **not** give you:
+It is **not** a substitute for [Temporal](https://temporal.io), [Inngest](https://www.inngest.com), or [Trigger.dev](https://trigger.dev). Specifically, Prose does **not** give you:
 
 - Long sleeps that survive process death (`await sleep(7.days)`)
 - An automatic resumer service that re-invokes crashed runs for you
@@ -34,10 +34,10 @@ Libraries like [neverthrow](https://github.com/supermacro/neverthrow) or [fp-ts]
 
 Prose is for teams building backend services with multi-step business logic (process an order, onboard a user, handle a payment) who want structured retries, timeouts, transactions, observability, and type-safe state threading — without adopting new infrastructure or a new programming paradigm.
 
-| Need | Tool |
-|------|------|
+| Need                                                                  | Tool                           |
+| --------------------------------------------------------------------- | ------------------------------ |
 | Hosted durable workflows, durable timers, cross-service orchestration | Temporal, Inngest, Trigger.dev |
-| In-process flows with opt-in crash recovery | **Prose** (with `durability`) |
-| Full effect system with typed errors | Effect-TS |
-| State machines with complex transitions | XState |
-| In-process business logic pipelines | **Prose** |
+| In-process flows with opt-in crash recovery                           | **Prose** (with `durability`)  |
+| Full effect system with typed errors                                  | Effect-TS                      |
+| State machines with complex transitions                               | XState                         |
+| In-process business logic pipelines                                   | **Prose**                      |

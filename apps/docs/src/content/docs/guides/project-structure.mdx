@@ -64,7 +64,7 @@ export const processOrder = createFlow<OrderInput, OrderDeps>('process-order')
   .validate('validateOrder', validateOrder)
   .step('calculateTotal', calculateTotal)
   .step('chargePayment', chargePayment)
-    .withRetry({ maxAttempts: 3, delayMs: 500 })
+  .withRetry({ maxAttempts: 3, delayMs: 500 })
   .transaction('persistOrder', persistOrder)
   .event('orderCreated', (ctx) => ({
     channel: 'orders',
@@ -230,6 +230,7 @@ describe('calculateTotal', () => {
 ### The flow file is auditable
 
 When reviewing a business operation, the flow file is the single source of truth. You can verify:
+
 - The order of operations
 - Which steps have retries and what the policy is
 - Which steps run in a transaction
@@ -243,6 +244,7 @@ Each step's state interface is a declaration of its upstream dependencies. Readi
 ### AI agents can reason about each piece independently
 
 When an AI agent needs to modify or extend the flow, the structure gives it clear boundaries:
+
 - To understand the operation: read `flow.ts`
 - To modify a specific behavior: edit the relevant step file
 - To add a new step: create a new file in `steps/`, define its state interface, wire it into `flow.ts`

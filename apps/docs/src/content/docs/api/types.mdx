@@ -19,12 +19,12 @@ interface FlowContext<TInput, TDeps extends BaseFlowDependencies, TState> {
 }
 ```
 
-| Property | Description |
-|----------|-------------|
-| `input` | Original input, readonly. Never changes during execution. |
-| `state` | Accumulated state from prior steps. Each step's return merges into this. |
-| `deps` | Dependencies injected via `.execute()`. |
-| `meta` | Runtime metadata (see `FlowMeta`). |
+| Property | Description                                                                 |
+| -------- | --------------------------------------------------------------------------- |
+| `input`  | Original input, readonly. Never changes during execution.                   |
+| `state`  | Accumulated state from prior steps. Each step's return merges into this.    |
+| `deps`   | Dependencies injected via `.execute()`.                                     |
+| `meta`   | Runtime metadata (see `FlowMeta`).                                          |
 | `signal` | Combined abort signal from flow timeout, step timeout, and external signal. |
 
 ## `BaseFlowDependencies`
@@ -65,15 +65,15 @@ interface FlowMeta {
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `flowName` | The flow's name. |
-| `startedAt` | When this `execute()` call began. Not preserved across resumes — set on each invocation. |
-| `currentStep` | The name of the step currently executing. |
-| `correlationId` | Custom or auto-generated ID propagated to events and observers. |
-| `runId` | The `DurabilityOptions.runId` of this run. Present only when durability is configured. |
+| Field            | Description                                                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flowName`       | The flow's name.                                                                                                                                                 |
+| `startedAt`      | When this `execute()` call began. Not preserved across resumes — set on each invocation.                                                                         |
+| `currentStep`    | The name of the step currently executing.                                                                                                                        |
+| `correlationId`  | Custom or auto-generated ID propagated to events and observers.                                                                                                  |
+| `runId`          | The `DurabilityOptions.runId` of this run. Present only when durability is configured.                                                                           |
 | `idempotencyKey` | Stable per-step key (`${runId}:${currentStep}`). Pass to external APIs that support idempotency so re-runs are safe. Present only when durability is configured. |
-| `isResuming` | `true` when this execution loaded an existing checkpoint rather than starting fresh. Present only when durability is configured. |
+| `isResuming`     | `true` when this execution loaded an existing checkpoint rather than starting fresh. Present only when durability is configured.                                 |
 
 ## `RetryOptions`
 
@@ -130,8 +130,11 @@ When you provide a typed `DatabaseClient` (e.g. from Drizzle), Prose infers `TTx
 Utility type that extracts the transaction client type from your dependencies. Useful when extracting transaction step handlers into standalone functions.
 
 ```typescript
-type TxClientOf<TDeps extends BaseFlowDependencies> =
-  TDeps extends { db: DatabaseClient<infer TTx> } ? TTx : unknown;
+type TxClientOf<TDeps extends BaseFlowDependencies> = TDeps extends {
+  db: DatabaseClient<infer TTx>;
+}
+  ? TTx
+  : unknown;
 ```
 
 Define it once in your application types and reuse across extracted step functions:

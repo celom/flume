@@ -4,11 +4,20 @@ Declarative workflow DSL for orchestrating complex business operations in Javasc
 
 ```typescript
 const flow = createFlow<{ orderId: string }>('process-order')
-  .validate('checkInput', (ctx) => { /* ... */ })
-  .step('fetchOrder', async (ctx) => { /* ... */ })
-  .step('chargePayment', async (ctx) => { /* ... */ })
+  .validate('checkInput', (ctx) => {
+    /* ... */
+  })
+  .step('fetchOrder', async (ctx) => {
+    /* ... */
+  })
+  .step('chargePayment', async (ctx) => {
+    /* ... */
+  })
   .withRetry({ maxAttempts: 3, delayMs: 200, backoffMultiplier: 2 })
-  .event('orders', (ctx) => ({ eventType: 'order.charged', orderId: ctx.state.order.id }))
+  .event('orders', (ctx) => ({
+    eventType: 'order.charged',
+    orderId: ctx.state.order.id,
+  }))
   .build();
 
 await flow.execute({ orderId: 'ord_123' }, { db, eventPublisher });
@@ -18,8 +27,8 @@ Type-safe state threading, retries with exponential backoff, timeouts, database 
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
+| Package                           | Description           |
+| --------------------------------- | --------------------- |
 | [`@celom/prose`](packages/prose/) | Core workflow library |
 
 ## Development

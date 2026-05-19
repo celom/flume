@@ -3,11 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  createFlow,
-  ValidationError,
-  TimeoutError,
-} from '../index.js';
+import { createFlow, ValidationError, TimeoutError } from '../index.js';
 
 type EmptyDeps = Record<string, never>;
 
@@ -61,7 +57,7 @@ describe('Workflow Library', () => {
         .stepIf(
           'optionalStep',
           (ctx) => ctx.input.enabled,
-          (ctx) => ({ executed: true }),
+          (ctx) => ({ executed: true })
         )
         .build();
 
@@ -129,7 +125,7 @@ describe('Workflow Library', () => {
 
     it('should accumulate state through steps', async () => {
       const flow = createFlow<{ a: number; b: number }, typeof mockDeps>(
-        'accumulate',
+        'accumulate'
       )
         .step('add', (ctx) => ({
           sum: ctx.input.a + ctx.input.b,
@@ -148,7 +144,7 @@ describe('Workflow Library', () => {
 
     it('should handle validation errors', async () => {
       const flow = createFlow<{ email: string }, typeof mockDeps>(
-        'validate-fail',
+        'validate-fail'
       )
         .validate('checkEmail', (ctx) => {
           if (!ctx.input.email.includes('@')) {
@@ -158,7 +154,7 @@ describe('Workflow Library', () => {
         .build();
 
       await expect(
-        flow.execute({ email: 'invalid' }, mockDeps),
+        flow.execute({ email: 'invalid' }, mockDeps)
       ).rejects.toThrow(ValidationError);
     });
 
@@ -223,7 +219,7 @@ describe('Workflow Library', () => {
         expect.objectContaining({
           eventType: 'assignment.submit',
           data: true,
-        }),
+        })
       );
     });
 
@@ -305,7 +301,7 @@ describe('Workflow Library', () => {
         .build();
 
       await expect(flow.execute({}, mockDeps, { timeout: 50 })).rejects.toThrow(
-        TimeoutError,
+        TimeoutError
       );
     });
 
@@ -319,7 +315,7 @@ describe('Workflow Library', () => {
 
       const start = Date.now();
       await expect(
-        flow.execute({}, mockDeps, { stepTimeout: 20 }),
+        flow.execute({}, mockDeps, { stepTimeout: 20 })
       ).rejects.toThrow(TimeoutError);
       const duration = Date.now() - start;
 
@@ -344,7 +340,7 @@ describe('Workflow Library', () => {
           input: {},
           deps: mockDeps,
         }),
-        mockDb,
+        mockDb
       );
     });
 
@@ -354,25 +350,41 @@ describe('Workflow Library', () => {
         .build();
 
       await expect(flow.execute({}, { notADb: 'wrong' })).rejects.toThrow(
-        'No database found in dependencies for transaction',
+        'No database found in dependencies for transaction'
       );
     });
 
     it('should use explicit channels for events', async () => {
       const flow = createFlow<any, any>('channel-mapping')
-        .event('auth', () => ({ eventType: 'user.create', data: 'user' }), 'authEvent')
-        .event('content', () => ({
-          eventType: 'subject.create',
-          data: 'subject',
-        }), 'contentEvent')
-        .event('notification', () => ({
-          eventType: 'notification.send',
-          data: 'notif',
-        }), 'notificationEvent')
-        .event('notification', () => ({
-          eventType: 'email.send',
-          data: 'default',
-        }), 'emailEvent')
+        .event(
+          'auth',
+          () => ({ eventType: 'user.create', data: 'user' }),
+          'authEvent'
+        )
+        .event(
+          'content',
+          () => ({
+            eventType: 'subject.create',
+            data: 'subject',
+          }),
+          'contentEvent'
+        )
+        .event(
+          'notification',
+          () => ({
+            eventType: 'notification.send',
+            data: 'notif',
+          }),
+          'notificationEvent'
+        )
+        .event(
+          'notification',
+          () => ({
+            eventType: 'email.send',
+            data: 'default',
+          }),
+          'emailEvent'
+        )
         .build();
 
       await flow.execute({}, mockDeps);
@@ -380,22 +392,22 @@ describe('Workflow Library', () => {
       expect(mockEventPublisher.publish).toHaveBeenNthCalledWith(
         1,
         'auth',
-        expect.objectContaining({ eventType: 'user.create' }),
+        expect.objectContaining({ eventType: 'user.create' })
       );
       expect(mockEventPublisher.publish).toHaveBeenNthCalledWith(
         2,
         'content',
-        expect.objectContaining({ eventType: 'subject.create' }),
+        expect.objectContaining({ eventType: 'subject.create' })
       );
       expect(mockEventPublisher.publish).toHaveBeenNthCalledWith(
         3,
         'notification',
-        expect.objectContaining({ eventType: 'notification.send' }),
+        expect.objectContaining({ eventType: 'notification.send' })
       );
       expect(mockEventPublisher.publish).toHaveBeenNthCalledWith(
         4,
         'notification',
-        expect.objectContaining({ eventType: 'email.send' }),
+        expect.objectContaining({ eventType: 'email.send' })
       );
     });
 
@@ -411,7 +423,7 @@ describe('Workflow Library', () => {
         expect.objectContaining({
           eventType: 'user.create',
           correlationId: 'test-123',
-        }),
+        })
       );
     });
 
@@ -421,23 +433,29 @@ describe('Workflow Library', () => {
         .build();
 
       await expect(flow.execute({}, { db: mockDb })).rejects.toThrow(
-        'No event publisher found in dependencies',
+        'No event publisher found in dependencies'
       );
     });
 
     it('should handle missing event publisher gracefully when configured', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* empty */ });
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* empty */
+      });
 
       const flow = createFlow<any, any>('no-publisher-warn')
         .event('auth', () => ({ eventType: 'user.create', data: 'test' }))
         .build();
 
-      await flow.execute({}, { db: mockDb }, {
-        errorHandling: { throwOnMissingEventPublisher: false },
-      });
+      await flow.execute(
+        {},
+        { db: mockDb },
+        {
+          errorHandling: { throwOnMissingEventPublisher: false },
+        }
+      );
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('No event publisher found'),
+        expect.stringContaining('No event publisher found')
       );
 
       consoleSpy.mockRestore();
@@ -446,10 +464,14 @@ describe('Workflow Library', () => {
     it('should skip undefined events', async () => {
       const flow = createFlow<any, any>('undefined-events')
         .event('notification', () => undefined, 'undefinedEvent')
-        .event('notification', () => ({
-          eventType: 'email.send',
-          data: 'data',
-        }), 'emailEvent')
+        .event(
+          'notification',
+          () => ({
+            eventType: 'email.send',
+            data: 'data',
+          }),
+          'emailEvent'
+        )
         .build();
 
       await flow.execute({}, mockDeps);
@@ -457,7 +479,7 @@ describe('Workflow Library', () => {
       expect(mockEventPublisher.publish).toHaveBeenCalledTimes(1);
       expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         'notification',
-        expect.objectContaining({ eventType: 'email.send' }),
+        expect.objectContaining({ eventType: 'email.send' })
       );
     });
 
@@ -468,7 +490,7 @@ describe('Workflow Library', () => {
 
       vi.spyOn(global, 'setTimeout').mockImplementation(((
         fn: any,
-        delay: number,
+        delay: number
       ) => {
         delays.push(delay);
         return originalSetTimeout(fn, 0);
@@ -505,7 +527,7 @@ describe('Workflow Library', () => {
 
       vi.spyOn(global, 'setTimeout').mockImplementation(((
         fn: any,
-        delay: number,
+        delay: number
       ) => {
         delays.push(delay);
         return originalSetTimeout(fn, 0);
@@ -643,10 +665,12 @@ describe('Workflow Library', () => {
   describe('Builder .parallel() method', () => {
     it('should execute handlers in parallel and merge results', async () => {
       const flow = createFlow<{ org: string }, EmptyDeps>('builder-parallel')
-        .parallel('fetchAll', 'shallow',
+        .parallel(
+          'fetchAll',
+          'shallow',
           () => ({ users: ['alice', 'bob'] }),
           () => ({ posts: ['p1', 'p2'] }),
-          () => ({ comments: ['c1'] }),
+          () => ({ comments: ['c1'] })
         )
         .build();
 
@@ -670,7 +694,9 @@ describe('Workflow Library', () => {
         return { b: 2 };
       };
 
-      const flow = createFlow<Record<string, never>, EmptyDeps>('concurrent-test')
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'concurrent-test'
+      )
         .parallel('ops', 'shallow', handler1, handler2)
         .build();
 
@@ -685,9 +711,11 @@ describe('Workflow Library', () => {
     it('should merge with prior state from earlier steps', async () => {
       const flow = createFlow<{ x: number }, EmptyDeps>('merge-prior')
         .step('init', (ctx) => ({ base: ctx.input.x }))
-        .parallel('fetch', 'shallow',
+        .parallel(
+          'fetch',
+          'shallow',
           () => ({ a: 10 }),
-          () => ({ b: 20 }),
+          () => ({ b: 20 })
         )
         .build();
 
@@ -698,22 +726,26 @@ describe('Workflow Library', () => {
 
     it('should support error-on-conflict strategy', async () => {
       const flow = createFlow<Record<string, never>, EmptyDeps>('conflict-test')
-        .parallel('ops', 'error-on-conflict',
+        .parallel(
+          'ops',
+          'error-on-conflict',
           () => ({ key: 'first' }),
-          () => ({ key: 'second' }),
+          () => ({ key: 'second' })
         )
         .build();
 
       await expect(flow.execute({}, {})).rejects.toThrow(
-        "Key conflict detected in parallel merge: 'key'",
+        "Key conflict detected in parallel merge: 'key'"
       );
     });
 
     it('should support deep merge strategy', async () => {
       const flow = createFlow<Record<string, never>, EmptyDeps>('deep-merge')
-        .parallel('ops', 'deep',
+        .parallel(
+          'ops',
+          'deep',
           () => ({ config: { theme: 'dark' } }),
-          () => ({ config: { lang: 'en' } }),
+          () => ({ config: { lang: 'en' } })
         )
         .build();
 
@@ -726,9 +758,11 @@ describe('Workflow Library', () => {
 
     it('should allow chaining after parallel', async () => {
       const flow = createFlow<Record<string, never>, EmptyDeps>('chain-after')
-        .parallel('fetch', 'shallow',
+        .parallel(
+          'fetch',
+          'shallow',
           () => ({ users: ['a'] }),
-          () => ({ posts: ['p'] }),
+          () => ({ posts: ['p'] })
         )
         .step('count', (ctx) => ({
           total: ctx.state.users.length + ctx.state.posts.length,
@@ -747,7 +781,7 @@ describe('Workflow Library', () => {
 
   describe('Builder .pipe() method', () => {
     function withSetup(
-      builder: ReturnType<typeof createFlow<Record<string, never>, EmptyDeps>>,
+      builder: ReturnType<typeof createFlow<Record<string, never>, EmptyDeps>>
     ) {
       return builder
         .step('setupA', () => ({ a: 1 }))
@@ -776,9 +810,7 @@ describe('Workflow Library', () => {
     });
 
     it('should compose multiple pipes', async () => {
-      function withExtra(
-        builder: ReturnType<typeof withSetup>,
-      ) {
+      function withExtra(builder: ReturnType<typeof withSetup>) {
         return builder.step('extra', () => ({ c: 3 }));
       }
 
@@ -836,7 +868,7 @@ describe('Workflow Library', () => {
       expect(observer.onFlowComplete).toHaveBeenCalledWith(
         'test',
         { result: 'ok' },
-        expect.any(Number), // duration
+        expect.any(Number) // duration
       );
       expect(observer.onFlowComplete).toHaveBeenCalledTimes(1);
     });
@@ -857,7 +889,7 @@ describe('Workflow Library', () => {
       expect(observer.onFlowError).toHaveBeenCalledWith(
         'test',
         expect.any(Error),
-        expect.any(Number), // duration
+        expect.any(Number) // duration
       );
       expect(observer.onFlowError).toHaveBeenCalledTimes(1);
     });
@@ -882,28 +914,28 @@ describe('Workflow Library', () => {
       expect(observer.onStepStart).toHaveBeenNthCalledWith(
         1,
         'step1',
-        expect.any(Object),
+        expect.any(Object)
       );
       expect(observer.onStepComplete).toHaveBeenNthCalledWith(
         1,
         'step1',
         { a: 1 },
         expect.any(Number),
-        expect.any(Object),
+        expect.any(Object)
       );
 
       // Check step2 was called
       expect(observer.onStepStart).toHaveBeenNthCalledWith(
         2,
         'step2',
-        expect.any(Object),
+        expect.any(Object)
       );
       expect(observer.onStepComplete).toHaveBeenNthCalledWith(
         2,
         'step2',
         { b: 2 },
         expect.any(Number),
-        expect.any(Object),
+        expect.any(Object)
       );
     });
 
@@ -925,7 +957,7 @@ describe('Workflow Library', () => {
           {
             maxAttempts: 3,
             delayMs: 10,
-          },
+          }
         )
         .build();
 
@@ -935,7 +967,7 @@ describe('Workflow Library', () => {
         'retry',
         1, // attempt number
         3, // max attempts
-        expect.any(Error),
+        expect.any(Error)
       );
       expect(observer.onStepRetry).toHaveBeenCalledTimes(1);
       expect(observer.onStepComplete).toHaveBeenCalledTimes(1);
@@ -951,7 +983,7 @@ describe('Workflow Library', () => {
         .stepIf(
           'conditional',
           (ctx) => !ctx.input.skip,
-          () => ({ ran: true }),
+          () => ({ ran: true })
         )
         .build();
 
@@ -959,7 +991,7 @@ describe('Workflow Library', () => {
 
       expect(observer.onStepSkipped).toHaveBeenCalledWith(
         'conditional',
-        expect.any(Object),
+        expect.any(Object)
       );
       expect(observer.onStepSkipped).toHaveBeenCalledTimes(1);
       expect(observer.onStepComplete).not.toHaveBeenCalled();
@@ -1021,7 +1053,7 @@ describe('Workflow Library', () => {
               for (const key in result) {
                 if (allKeys.has(key)) {
                   throw new Error(
-                    `Key conflict detected in parallel merge: '${key}'`,
+                    `Key conflict detected in parallel merge: '${key}'`
                   );
                 }
                 allKeys.add(key);
@@ -1033,7 +1065,7 @@ describe('Workflow Library', () => {
         .build();
 
       await expect(flow.execute({}, {})).rejects.toThrow(
-        "Key conflict detected in parallel merge: 'users'",
+        "Key conflict detected in parallel merge: 'users'"
       );
     });
 
@@ -1071,9 +1103,11 @@ describe('Workflow Library', () => {
 
     it('should deep merge nested objects', async () => {
       const flow = createFlow<Record<string, never>, EmptyDeps>('test')
-        .parallel('deepMergeTest', 'deep',
+        .parallel(
+          'deepMergeTest',
+          'deep',
           () => ({ config: { host: 'localhost' } }),
-          () => ({ config: { port: 5432 } }),
+          () => ({ config: { port: 5432 } })
         )
         .build();
 
@@ -1084,9 +1118,11 @@ describe('Workflow Library', () => {
 
     it('should concatenate arrays in deep merge (not overwrite)', async () => {
       const flow = createFlow<Record<string, never>, EmptyDeps>('array-merge')
-        .parallel('arrayMergeTest', 'deep',
+        .parallel(
+          'arrayMergeTest',
+          'deep',
           () => ({ items: [{ id: 1 }] }),
-          () => ({ items: [{ id: 2 }] }),
+          () => ({ items: [{ id: 2 }] })
         )
         .build();
 
@@ -1098,9 +1134,17 @@ describe('Workflow Library', () => {
 
     it('should handle mixed nested structures in deep merge', async () => {
       const flow = createFlow<Record<string, never>, EmptyDeps>('mixed-merge')
-        .parallel('mixedMergeTest', 'deep',
-          () => ({ config: { features: ['auth'] }, users: [{ name: 'alice' }] }),
-          () => ({ config: { features: ['logging'], timeout: 30 }, users: [{ name: 'bob' }] }),
+        .parallel(
+          'mixedMergeTest',
+          'deep',
+          () => ({
+            config: { features: ['auth'] },
+            users: [{ name: 'alice' }],
+          }),
+          () => ({
+            config: { features: ['logging'], timeout: 30 },
+            users: [{ name: 'bob' }],
+          })
         )
         .build();
 
@@ -1147,7 +1191,7 @@ describe('Workflow Library', () => {
         .step('step1', (ctx) => ({ shouldBreak: ctx.input.shouldBreak }))
         .breakIf(
           (ctx) => ctx.state.shouldBreak,
-          () => ({ earlyReturn: true }),
+          () => ({ earlyReturn: true })
         )
         .step('step2', step2Handler)
         .build();
@@ -1165,7 +1209,7 @@ describe('Workflow Library', () => {
         .step('step1', (ctx) => ({ shouldBreak: ctx.input.shouldBreak }))
         .breakIf(
           (ctx) => ctx.state.shouldBreak,
-          () => ({ earlyReturn: true }),
+          () => ({ earlyReturn: true })
         )
         .step('step2', step2Handler)
         .build();
@@ -1195,7 +1239,7 @@ describe('Workflow Library', () => {
         .step('step1', () => ({ value: 1 }))
         .breakIf(
           () => true,
-          () => ({ breakValue: true }),
+          () => ({ breakValue: true })
         )
         .map(mapper)
         .build();
@@ -1211,17 +1255,21 @@ describe('Workflow Library', () => {
         .step('setLevel', (ctx) => ({ level: ctx.input.level }))
         .breakIf(
           (ctx) => ctx.state.level === 1,
-          () => ({ result: 'level1' }),
+          () => ({ result: 'level1' })
         )
         .breakIf(
           (ctx) => ctx.state.level === 2,
-          () => ({ result: 'level2' }),
+          () => ({ result: 'level2' })
         )
         .step('default', () => ({ result: 'default' }))
         .build();
 
-      expect(await flow.execute({ level: 1 }, {})).toEqual({ result: 'level1' });
-      expect(await flow.execute({ level: 2 }, {})).toEqual({ result: 'level2' });
+      expect(await flow.execute({ level: 1 }, {})).toEqual({
+        result: 'level1',
+      });
+      expect(await flow.execute({ level: 2 }, {})).toEqual({
+        result: 'level2',
+      });
       expect(await flow.execute({ level: 3 }, {})).toEqual({
         level: 3,
         result: 'default',
@@ -1237,7 +1285,7 @@ describe('Workflow Library', () => {
         .transaction('persist', async () => ({ txComplete: true }))
         .breakIf(
           (ctx) => ctx.state.txComplete,
-          () => ({ result: 'after-tx-break' }),
+          () => ({ result: 'after-tx-break' })
         )
         .step('unreachable', () => ({ unreachable: true }))
         .build();
@@ -1258,12 +1306,15 @@ describe('Workflow Library', () => {
         .event('auth', () => ({ eventType: 'user.create', data: {} }))
         .breakIf(
           (ctx) => ctx.state.ready,
-          () => ({ result: 'after-event-break' }),
+          () => ({ result: 'after-event-break' })
         )
         .step('unreachable', () => ({ unreachable: true }))
         .build();
 
-      const result = await flow.execute({}, { eventPublisher: mockEventPublisher });
+      const result = await flow.execute(
+        {},
+        { eventPublisher: mockEventPublisher }
+      );
 
       expect(result).toEqual({ result: 'after-event-break' });
       expect(mockEventPublisher.publish).toHaveBeenCalled();
@@ -1282,7 +1333,7 @@ describe('Workflow Library', () => {
         .step('step1', () => ({ value: 1 }))
         .breakIf(
           () => true,
-          () => ({ breakResult: true }),
+          () => ({ breakResult: true })
         )
         .build();
 
@@ -1292,14 +1343,16 @@ describe('Workflow Library', () => {
         'observe-break',
         'break_1',
         { breakResult: true },
-        expect.any(Number),
+        expect.any(Number)
       );
       // onFlowComplete should NOT be called when breaking
       expect(observer.onFlowComplete).not.toHaveBeenCalled();
     });
 
     it('should generate unique step names for multiple breakIf', () => {
-      const flow = createFlow<Record<string, never>, EmptyDeps>('multi-break-names')
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'multi-break-names'
+      )
         .step('step1', () => ({}))
         .breakIf(() => false)
         .step('step2', () => ({}))
@@ -1343,7 +1396,9 @@ describe('Workflow Library', () => {
       const controller = new AbortController();
       const step2Handler = vi.fn().mockReturnValue({ step2: true });
 
-      const flow = createFlow<Record<string, never>, EmptyDeps>('external-abort')
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'external-abort'
+      )
         .step('step1', async () => {
           // Abort after this step completes
           controller.abort();
@@ -1353,7 +1408,7 @@ describe('Workflow Library', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { signal: controller.signal }),
+        flow.execute({}, {}, { signal: controller.signal })
       ).rejects.toThrow();
 
       expect(step2Handler).not.toHaveBeenCalled();
@@ -1370,7 +1425,7 @@ describe('Workflow Library', () => {
         .build();
 
       await expect(
-        flow.execute({}, {}, { signal: controller.signal }),
+        flow.execute({}, {}, { signal: controller.signal })
       ).rejects.toThrow();
 
       expect(stepHandler).not.toHaveBeenCalled();
@@ -1379,7 +1434,9 @@ describe('Workflow Library', () => {
     it('should propagate step-scoped signal on step timeout', async () => {
       let capturedSignal: AbortSignal | undefined;
 
-      const flow = createFlow<Record<string, never>, EmptyDeps>('step-timeout-signal')
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'step-timeout-signal'
+      )
         .step('slow', async (ctx) => {
           capturedSignal = ctx.signal;
           await new Promise((resolve) => setTimeout(resolve, 200));
@@ -1387,9 +1444,9 @@ describe('Workflow Library', () => {
         })
         .build();
 
-      await expect(
-        flow.execute({}, {}, { stepTimeout: 20 }),
-      ).rejects.toThrow(TimeoutError);
+      await expect(flow.execute({}, {}, { stepTimeout: 20 })).rejects.toThrow(
+        TimeoutError
+      );
 
       // The signal should have been aborted by the step timeout
       expect(capturedSignal).toBeDefined();
@@ -1397,7 +1454,9 @@ describe('Workflow Library', () => {
     });
 
     it('should still produce TimeoutError for flow-level timeout', async () => {
-      const flow = createFlow<Record<string, never>, EmptyDeps>('flow-timeout-signal')
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'flow-timeout-signal'
+      )
         .step('step1', async () => {
           await new Promise((resolve) => setTimeout(resolve, 30));
           return { step1: true };
@@ -1412,9 +1471,9 @@ describe('Workflow Library', () => {
         })
         .build();
 
-      await expect(
-        flow.execute({}, {}, { timeout: 50 }),
-      ).rejects.toThrow(TimeoutError);
+      await expect(flow.execute({}, {}, { timeout: 50 })).rejects.toThrow(
+        TimeoutError
+      );
     });
 
     it('should abort retry delay immediately when signal fires', async () => {
@@ -1436,7 +1495,7 @@ describe('Workflow Library', () => {
 
       const start = Date.now();
       await expect(
-        flow.execute({}, {}, { signal: controller.signal }),
+        flow.execute({}, {}, { signal: controller.signal })
       ).rejects.toThrow();
       const duration = Date.now() - start;
 
@@ -1448,8 +1507,12 @@ describe('Workflow Library', () => {
     it('should provide signal to parallel handlers', async () => {
       const signals: AbortSignal[] = [];
 
-      const flow = createFlow<Record<string, never>, EmptyDeps>('parallel-signal')
-        .parallel('fetch', 'shallow',
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'parallel-signal'
+      )
+        .parallel(
+          'fetch',
+          'shallow',
           (ctx) => {
             signals.push(ctx.signal);
             return { a: 1 };
@@ -1457,7 +1520,7 @@ describe('Workflow Library', () => {
           (ctx) => {
             signals.push(ctx.signal);
             return { b: 2 };
-          },
+          }
         )
         .build();
 
@@ -1471,7 +1534,9 @@ describe('Workflow Library', () => {
     it('should abort the signal on flow-level timeout', async () => {
       let capturedSignal: AbortSignal | undefined;
 
-      const flow = createFlow<Record<string, never>, EmptyDeps>('flow-abort-signal')
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'flow-abort-signal'
+      )
         .step('slow', async (ctx) => {
           capturedSignal = ctx.signal;
           await new Promise((resolve) => setTimeout(resolve, 200));
@@ -1479,16 +1544,18 @@ describe('Workflow Library', () => {
         })
         .build();
 
-      await expect(
-        flow.execute({}, {}, { timeout: 20 }),
-      ).rejects.toThrow(TimeoutError);
+      await expect(flow.execute({}, {}, { timeout: 20 })).rejects.toThrow(
+        TimeoutError
+      );
 
       expect(capturedSignal).toBeDefined();
       expect(capturedSignal!.aborted).toBe(true);
     });
 
     it('should respect stepTimeout and interrupt quickly', async () => {
-      const flow = createFlow<Record<string, never>, EmptyDeps>('step-timeout-interrupt')
+      const flow = createFlow<Record<string, never>, EmptyDeps>(
+        'step-timeout-interrupt'
+      )
         .step('slowStep', async () => {
           await new Promise((resolve) => setTimeout(resolve, 200));
           return { slow: true };
@@ -1496,9 +1563,9 @@ describe('Workflow Library', () => {
         .build();
 
       const start = Date.now();
-      await expect(
-        flow.execute({}, {}, { stepTimeout: 20 }),
-      ).rejects.toThrow(TimeoutError);
+      await expect(flow.execute({}, {}, { stepTimeout: 20 })).rejects.toThrow(
+        TimeoutError
+      );
       const duration = Date.now() - start;
 
       expect(duration).toBeLessThan(80);

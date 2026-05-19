@@ -13,7 +13,10 @@ import { MemoryDurabilityStore } from '../index.js';
 import { storeConformanceSuite } from './store-conformance.js';
 import type { FlowCheckpoint } from '../index.js';
 
-storeConformanceSuite('MemoryDurabilityStore', () => new MemoryDurabilityStore());
+storeConformanceSuite(
+  'MemoryDurabilityStore',
+  () => new MemoryDurabilityStore()
+);
 
 function fixture(): FlowCheckpoint {
   return {

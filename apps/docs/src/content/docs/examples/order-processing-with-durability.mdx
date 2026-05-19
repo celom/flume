@@ -14,18 +14,25 @@ This example extends the [order processing pipeline](/prose/examples/order-proce
 Two things change. The handlers pass `ctx.meta.idempotencyKey` to any external side effect that supports idempotency, and the caller passes a `durability` option to `execute()`.
 
 ```typescript
-import { createFlow, ValidationError, MemoryDurabilityStore } from '@celom/prose';
+import {
+  createFlow,
+  ValidationError,
+  MemoryDurabilityStore,
+} from '@celom/prose';
 
 const processOrder = createFlow<OrderInput, OrderDeps>('process-order')
-
   .validate('validateOrder', (ctx) => {
     if (ctx.input.items.length === 0)
-      throw ValidationError.single('items', 'Order must have at least one item');
+      throw ValidationError.single(
+        'items',
+        'Order must have at least one item'
+      );
   })
 
   .step('calculateTotal', (ctx) => {
     const subtotal = ctx.input.items.reduce(
-      (sum, item) => sum + item.price * item.quantity, 0
+      (sum, item) => sum + item.price * item.quantity,
+      0
     );
     const tax = subtotal * 0.08;
     return { subtotal, tax, total: subtotal + tax };
@@ -40,7 +47,7 @@ const processOrder = createFlow<OrderInput, OrderDeps>('process-order')
         currency: 'usd',
         customer: ctx.input.userId,
       },
-      { idempotencyKey: ctx.meta.idempotencyKey },
+      { idempotencyKey: ctx.meta.idempotencyKey }
     );
     return { receipt };
   })
@@ -109,12 +116,14 @@ const result = await processOrder.execute(
   { db, eventPublisher },
   {
     durability: { store, runId: 'ord_abc123' },
-  },
+  }
 );
 ```
 
 <Aside type="caution">
-  `MemoryDurabilityStore` is fine for tests and dev. It does not survive a process exit — for real crash recovery, implement a persistent [`DurabilityStore`](/prose/api/durability-store/) backed by your database.
+  `MemoryDurabilityStore` is fine for tests and dev. It does not survive a
+  process exit — for real crash recovery, implement a persistent
+  [`DurabilityStore`](/prose/api/durability-store/) backed by your database.
 </Aside>
 
 ## A concrete crash scenario
@@ -178,10 +187,10 @@ A **third** call to `execute()` with the same `runId` returns the saved result w
 
 When durability is configured, every step handler sees a stable per-step key:
 
-| Step name | `ctx.meta.idempotencyKey` |
-|-----------|--------------------------|
-| `chargePayment` | `'ord_abc123:chargePayment'` |
-| `persistOrder` | `'ord_abc123:persistOrder'` |
+| Step name          | `ctx.meta.idempotencyKey`       |
+| ------------------ | ------------------------------- |
+| `chargePayment`    | `'ord_abc123:chargePayment'`    |
+| `persistOrder`     | `'ord_abc123:persistOrder'`     |
 | `sendConfirmation` | `'ord_abc123:sendConfirmation'` |
 
 The key is the same on every attempt of the same logical step — that's the whole point. When the second `execute()` call re-runs `persistOrder`, it sees the same `idempotencyKey` it would have used the first time, so external systems can deduplicate.

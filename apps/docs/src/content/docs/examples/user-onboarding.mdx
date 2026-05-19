@@ -19,7 +19,6 @@ interface OnboardInput {
 }
 
 const onboardUser = createFlow<OnboardInput>('onboard-user')
-
   // 1. Validate email format
   .validate('checkEmail', (ctx) => {
     if (!ctx.input.email.includes('@'))

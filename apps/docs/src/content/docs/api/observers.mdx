@@ -14,11 +14,31 @@ interface FlowObserver {
   onFlowStart?(flowName: string, input: unknown): void;
   onFlowComplete?(flowName: string, output: unknown, duration: number): void;
   onFlowError?(flowName: string, error: Error, duration: number): void;
-  onFlowBreak?(flowName: string, breakStepName: string, returnValue: unknown, duration: number): void;
+  onFlowBreak?(
+    flowName: string,
+    breakStepName: string,
+    returnValue: unknown,
+    duration: number
+  ): void;
   onStepStart?(stepName: string, context: FlowContext): void;
-  onStepComplete?(stepName: string, result: unknown, duration: number, context: FlowContext): void;
-  onStepError?(stepName: string, error: Error, duration: number, context: FlowContext): void;
-  onStepRetry?(stepName: string, attempt: number, maxAttempts: number, error: Error): void;
+  onStepComplete?(
+    stepName: string,
+    result: unknown,
+    duration: number,
+    context: FlowContext
+  ): void;
+  onStepError?(
+    stepName: string,
+    error: Error,
+    duration: number,
+    context: FlowContext
+  ): void;
+  onStepRetry?(
+    stepName: string,
+    attempt: number,
+    maxAttempts: number,
+    error: Error
+  ): void;
   onStepSkipped?(stepName: string, context: FlowContext): void;
 }
 ```

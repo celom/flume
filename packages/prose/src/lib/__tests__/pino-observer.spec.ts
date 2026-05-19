@@ -33,7 +33,7 @@ describe('PinoFlowObserver', () => {
       observer.onFlowStart('my-flow', { userId: '1' });
       expect(childLogger.info).toHaveBeenCalledWith(
         { flow: 'my-flow' },
-        'Flow started',
+        'Flow started'
       );
     });
 
@@ -41,7 +41,7 @@ describe('PinoFlowObserver', () => {
       observer.onFlowComplete('my-flow', {} as any, 1234);
       expect(childLogger.info).toHaveBeenCalledWith(
         { flow: 'my-flow', durationMs: 1234 },
-        'Flow completed',
+        'Flow completed'
       );
     });
 
@@ -50,7 +50,7 @@ describe('PinoFlowObserver', () => {
       observer.onFlowError('my-flow', err, 500);
       expect(childLogger.error).toHaveBeenCalledWith(
         { flow: 'my-flow', durationMs: 500, err },
-        'Flow failed',
+        'Flow failed'
       );
     });
 
@@ -58,7 +58,7 @@ describe('PinoFlowObserver', () => {
       observer.onFlowBreak('my-flow', 'check-guard', undefined, 300);
       expect(childLogger.info).toHaveBeenCalledWith(
         { flow: 'my-flow', breakStep: 'check-guard', durationMs: 300 },
-        'Flow short-circuited',
+        'Flow short-circuited'
       );
     });
   });
@@ -68,15 +68,20 @@ describe('PinoFlowObserver', () => {
       observer.onStepStart('fetch-data', {} as any);
       expect(childLogger.debug).toHaveBeenCalledWith(
         { step: 'fetch-data' },
-        'Step started',
+        'Step started'
       );
     });
 
     it('logs step completion with duration and result keys', () => {
-      observer.onStepComplete('fetch-data', { users: [], count: 5 }, 42, {} as any);
+      observer.onStepComplete(
+        'fetch-data',
+        { users: [], count: 5 },
+        42,
+        {} as any
+      );
       expect(childLogger.info).toHaveBeenCalledWith(
         { step: 'fetch-data', durationMs: 42, resultKeys: ['users', 'count'] },
-        'Step completed',
+        'Step completed'
       );
     });
 
@@ -84,7 +89,7 @@ describe('PinoFlowObserver', () => {
       observer.onStepComplete('validate', undefined, 1, {} as any);
       expect(childLogger.info).toHaveBeenCalledWith(
         { step: 'validate', durationMs: 1 },
-        'Step completed',
+        'Step completed'
       );
     });
 
@@ -93,7 +98,7 @@ describe('PinoFlowObserver', () => {
       observer.onStepError('persist', err, 5000, {} as any);
       expect(childLogger.error).toHaveBeenCalledWith(
         { step: 'persist', durationMs: 5000, err },
-        'Step failed',
+        'Step failed'
       );
     });
 
@@ -102,7 +107,7 @@ describe('PinoFlowObserver', () => {
       observer.onStepRetry('fetch-data', 2, 3, err);
       expect(childLogger.warn).toHaveBeenCalledWith(
         { step: 'fetch-data', attempt: 2, maxAttempts: 3, err },
-        'Step retrying',
+        'Step retrying'
       );
     });
 
@@ -110,7 +115,7 @@ describe('PinoFlowObserver', () => {
       observer.onStepSkipped('enrich', {} as any);
       expect(childLogger.debug).toHaveBeenCalledWith(
         { step: 'enrich' },
-        'Step skipped',
+        'Step skipped'
       );
     });
   });

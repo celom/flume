@@ -21,19 +21,23 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 <CardGrid stagger>
   <Card title="Type-safe State Threading" icon="approve-check">
-    Each step's return type merges into `ctx.state`, giving full autocomplete and compile-time checks across the entire pipeline.
+    Each step's return type merges into `ctx.state`, giving full autocomplete
+    and compile-time checks across the entire pipeline.
   </Card>
   <Card title="Zero Dependencies" icon="rocket">
     Runs in-process with no external infrastructure. Just `async`/`await`.
   </Card>
   <Card title="Retries & Backoff" icon="random">
-    Per-step retry policies with exponential backoff, delay caps, and conditional predicates.
+    Per-step retry policies with exponential backoff, delay caps, and
+    conditional predicates.
   </Card>
   <Card title="Timeouts & Cancellation" icon="warning">
-    Flow-level and step-level timeouts backed by `AbortSignal` with cooperative cancellation.
+    Flow-level and step-level timeouts backed by `AbortSignal` with cooperative
+    cancellation.
   </Card>
   <Card title="Database Transactions" icon="document">
-    Wrap steps in `db.transaction()` — works with Drizzle, Knex, Prisma, or any ORM.
+    Wrap steps in `db.transaction()` — works with Drizzle, Knex, Prisma, or any
+    ORM.
   </Card>
   <Card title="Event Publishing" icon="forward-slash">
     Emit domain events to named channels with automatic correlation IDs.
@@ -45,7 +49,8 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     Plug in logging, metrics, or tracing through the observer interface.
   </Card>
   <Card title="Durable Execution" icon="seti:db">
-    Opt-in skip-ahead checkpointing — survive process crashes without re-running completed steps.
+    Opt-in skip-ahead checkpointing — survive process crashes without re-running
+    completed steps.
   </Card>
 </CardGrid>
 
