@@ -1,4 +1,10 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
   "extraKnownMarketplaces": {
     "nx-claude-plugins": {
       "source": {
@@ -7,6 +13,7 @@
       }
     }
   },
+  "effortLevel": "xhigh",
   "enabledPlugins": {
     "nx@nx-claude-plugins": true
   }
